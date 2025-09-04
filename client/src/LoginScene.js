@@ -32,13 +32,20 @@ export default class LoginScene extends Phaser.Scene {
           const y = 150 + i * 70;
 
           // Player text
-          const txt = this.add.text(width / 2 - 40, y, `${p.username} (${p.role})`, {
+// Player text (now shows level as well)
+        const txt = this.add.text(
+          width / 2 - 40,
+          y,
+          `${p.username} (${p.role}) Lv ${p.level}`,   // 🟢 Added Lv X
+          {
             fontFamily: '"Luckiest Guy", sans-serif',
             fontSize: "36px",
             color: "#ffffff",
             backgroundColor: "#00000088",
             padding: { x: 12, y: 6 },
-          }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+          }
+        )
+        .setOrigin(0.5).setInteractive({ useHandCursor: true });
 
           txt.on("pointerover", () => txt.setStyle({ color: "#ffcc00" }));
           txt.on("pointerout", () => txt.setStyle({ color: "#ffffff" }));

@@ -8,12 +8,14 @@ export default class HubScene extends Phaser.Scene {
     super("HubScene");
     this.player = null;
     this.statsText = null;
+    this.playerId = null;
+    this.trainingBtn = null;
+    this.blinkingTween = null;
   }
 
   preload() {
-    this.load.image("stadium", "/assets/stadium.png");
+    this.load.image("lockerroom", "/assets/lockerroom.png");
 
-    // same characters you already use
     this.load.image("goalkeeper", "/characters/goalkeeper.png");
     this.load.image("defender", "/characters/defender.png");
     this.load.image("midfielder", "/characters/midfielder.png");
@@ -23,40 +25,22 @@ export default class HubScene extends Phaser.Scene {
   async create() {
     const { width, height } = this.scale;
 
-    // Stadium background
-    this.add.image(width / 2, height / 2, "stadium")
+    // Background
+    this.add.image(width / 2, height / 2, "lockerroom")
       .setOrigin(0.5)
       .setDisplaySize(width, height);
 
-    // 🧍 Show the chosen role
-    const role = this.registry.get("playerRole") || "defender"; // fallback
-    this.add.image(width - 550, height * 0.9, role)
-      .setOrigin(0.5, 1)
-      .setScale(0.4);
+    // Player ID
+    this.playerId = this.registry.get("playerId");
 
-    // 🔄 Fetch player from backend to get level/xp/dollars
-    const playerId = this.registry.get("playerId");
-    try {
-      const res = await fetch(`${API}/players`);
-      const players = await res.json();
-      this.player = players.find(p => p.id === playerId);
-
-      if (this.player) {
-        // 📊 Stats HUD (top-left corner)
-        this.statsText = this.add.text(500, 20,
-          `Level: ${this.player.level}\nXP: ${this.player.xp}\nDollars: ${this.player.dollars}`,
-          {
-            fontFamily: '"Luckiest Guy", sans-serif',
-            fontSize: "28px",
-            color: "#ffffff",
-            backgroundColor: "#00000088",
-            padding: { x: 10, y: 6 },
-          }
-        ).setOrigin(0, 0);
-      }
-    } catch (err) {
-      console.error("Failed to load player:", err);
-    }
+    // HUD will be updated later
+    this.statsText = this.add.text(500, 20, "Loading player...", {
+      fontFamily: '"Luckiest Guy", sans-serif',
+      fontSize: "28px",
+      color: "#ffffff",
+      backgroundColor: "#0c2f0c",
+      padding: { x: 10, y: 6 },
+    }).setOrigin(0, 0);
 
     // Back button
     const backBtn = this.add.text(80, 40, "← Back", {
@@ -71,8 +55,8 @@ export default class HubScene extends Phaser.Scene {
       this.scene.start("LoginScene");
     });
 
-    // 🏋️ TRAINING button
-    const trainingBtn = this.add.text(width / 2 , height * 0.10, "TRAINING", {
+    // Training button
+    this.trainingBtn = this.add.text(width / 2, height * 0.10, "TRAINING", {
       fontFamily: '"Luckiest Guy", sans-serif',
       fontSize: "42px",
       color: "#ffffff",
@@ -80,11 +64,87 @@ export default class HubScene extends Phaser.Scene {
       padding: { x: 20, y: 10 },
     }).setOrigin(0.5).setInteractive({ useHandCursor: true });
 
-    trainingBtn.on("pointerover", () => trainingBtn.setStyle({ color: "#ffcc00" }));
-    trainingBtn.on("pointerout", () => trainingBtn.setStyle({ color: "#ffffff" }));
+    this.trainingBtn.on("pointerover", () => this.trainingBtn.setStyle({ color: "#ffcc00" }));
+    this.trainingBtn.on("pointerout", () => this.trainingBtn.setStyle({ color: "#ffffff" }));
 
-    trainingBtn.on("pointerdown", () => {
-      this.scene.start("TrainingScene");
+    this.trainingBtn.on("pointerdown", () => {
+      if (!this.player) return;
+
+      const { last_training, training_end } = this.player;
+      const now = new Date();
+
+      if (!last_training) {
+        this.scene.start("TrainingScene");
+      } else if (new Date(training_end) > now) {
+        this.scene.start(this.getTrainingScene(last_training), { autoClaim: false });
+      } else {
+        this.scene.start(this.getTrainingScene(last_training), { autoClaim: true });
+      }
     });
+
+    // 🔄 Poll player state every 5 seconds
+    this.time.addEvent({
+      delay: 1000,
+      loop: true,
+      callback: () => this.refreshPlayer(),
+    });
+
+    // Initial fetch
+    this.refreshPlayer();
+  }
+
+  async refreshPlayer() {
+    if (!this.playerId) return;
+
+    try {
+      const res = await fetch(`${API}/players/${this.playerId}`);
+      const updated = await res.json();
+      this.player = updated;
+
+      // Update HUD
+      this.statsText.setText(
+        `Level ${updated.level} (XP: ${updated.xp})\nDollars: ${updated.dollars}`
+      );
+
+
+
+      // Blink logic
+      const now = new Date();
+      if (updated.last_training && updated.training_end && new Date(updated.training_end) <= now) {
+        this.startBlinking();
+      } else {
+        this.stopBlinking();
+      }
+    } catch (err) {
+      console.error("Failed to refresh player:", err);
+    }
+  }
+
+  startBlinking() {
+    if (this.blinkingTween) return; // already blinking
+    this.blinkingTween = this.tweens.add({
+      targets: this.trainingBtn,
+      alpha: 0.3,
+      duration: 500,
+      yoyo: true,
+      repeat: -1,
+    });
+  }
+
+  stopBlinking() {
+    if (this.blinkingTween) {
+      this.blinkingTween.stop();
+      this.trainingBtn.setAlpha(1);
+      this.blinkingTween = null;
+    }
+  }
+
+  getTrainingScene(type) {
+    switch (type) {
+      case "gym": return "GymScene";
+      case "running": return "RunningScene";
+      case "ball": return "BallScene";
+      default: return "TrainingScene";
+    }
   }
 }

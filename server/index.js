@@ -50,6 +50,21 @@ app.get("/players", async (_req, res) => {
   }
 });
 
+// ⭐ NEW: Get a single player by ID
+app.get("/players/:id", async (req, res) => {
+  const { id } = req.params;
+  try {
+    const result = await pool.query("SELECT * FROM players WHERE id = $1", [id]);
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Player not found" });
+    }
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error("Get player error:", err);
+    res.status(500).json({ error: "Could not fetch player" });
+  }
+});
+
 // Delete player
 app.delete("/players/:id", async (req, res) => {
   const { id } = req.params;
@@ -65,9 +80,9 @@ app.delete("/players/:id", async (req, res) => {
 
 // --- Training Config ---
 const trainings = {
-  gym: { duration: 30, rewards: { strength: 2, xp: 10, dollars: 0 } },
-  running: { duration: 45, rewards: { stamina: 2, xp: 5, dollars: 5 } },
-  ball: { duration: 60, rewards: { speed: 2, xp: 15, dollars: 0 } },
+  gym:     { duration: 30, rewards: { strength: 2, xp: 10, dollars: 0 } },
+  running: { duration: 45, rewards: { stamina: 2, xp: 5,  dollars: 5 } },
+  ball:    { duration: 60, rewards: { speed: 2,   xp: 15, dollars: 0 } },
 };
 
 // Start training
@@ -101,13 +116,13 @@ app.post("/players/:id/start-training", async (req, res) => {
   }
 });
 
-// Finish training
+// ⭐ FIXED: Finish training (with level-up check)
 app.post("/players/:id/finish-training", async (req, res) => {
   const { id } = req.params;
 
   try {
     const playerRes = await pool.query("SELECT * FROM players WHERE id = $1", [id]);
-    const player = playerRes.rows[0];
+    let player = playerRes.rows[0];
     if (!player) return res.status(404).json({ error: "Player not found" });
 
     if (!player.training_end || new Date(player.training_end) > new Date()) {
@@ -116,7 +131,8 @@ app.post("/players/:id/finish-training", async (req, res) => {
 
     const rewards = trainings[player.last_training]?.rewards || { strength: 0, xp: 0, dollars: 0 };
 
-    const updated = await pool.query(
+    // Apply rewards
+    let updated = await pool.query(
       `UPDATE players
        SET strength = strength + $1,
            xp = xp + $2,
@@ -125,17 +141,34 @@ app.post("/players/:id/finish-training", async (req, res) => {
            last_training = NULL
        WHERE id = $4
        RETURNING *`,
-      [rewards.strength, rewards.xp, rewards.dollars, id]
+      [rewards.strength || 0, rewards.xp || 0, rewards.dollars || 0, id]
     );
 
-    res.json(updated.rows[0]);
+    player = updated.rows[0];
+
+    // ⭐ Handle multiple level-ups
+    let xpNeeded = player.level * 100;
+    while (player.xp >= xpNeeded) {
+      const newLevel = player.level + 1;
+      const leftoverXp = player.xp - xpNeeded;
+
+      const lvlUp = await pool.query(
+        "UPDATE players SET level = $1, xp = $2 WHERE id = $3 RETURNING *",
+        [newLevel, leftoverXp, id]
+      );
+      player = lvlUp.rows[0];
+
+      xpNeeded = player.level * 100; // recalc for next level
+    }
+
+    res.json(player);
   } catch (err) {
     console.error("Finish training error:", err);
     res.status(500).json({ error: "Could not finish training" });
   }
 });
 
-// Gain XP manually (optional, kept)
+// Gain XP manually (kept for debugging)
 app.post("/players/:id/xp", async (req, res) => {
   const { id } = req.params;
   const { amount } = req.body;
@@ -148,16 +181,18 @@ app.post("/players/:id/xp", async (req, res) => {
     if (player.rowCount === 0) return res.status(404).json({ error: "Player not found" });
 
     player = player.rows[0];
-    const xpNeeded = player.level * 100;
 
-    if (player.xp >= xpNeeded) {
+    // ⭐ Reuse same level-up logic
+    let xpNeeded = player.level * 100;
+    while (player.xp >= xpNeeded) {
       const newLevel = player.level + 1;
       const leftoverXp = player.xp - xpNeeded;
-      const updated = await pool.query(
+      const lvlUp = await pool.query(
         "UPDATE players SET level = $1, xp = $2 WHERE id = $3 RETURNING *",
         [newLevel, leftoverXp, id]
       );
-      return res.json(updated.rows[0]);
+      player = lvlUp.rows[0];
+      xpNeeded = player.level * 100;
     }
 
     res.json(player);
@@ -167,7 +202,7 @@ app.post("/players/:id/xp", async (req, res) => {
   }
 });
 
-// Earn/Spend Dollars (optional, kept)
+// Earn/Spend Dollars
 app.post("/players/:id/money", async (req, res) => {
   const { id } = req.params;
   const { amount } = req.body;

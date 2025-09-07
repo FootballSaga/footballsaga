@@ -7,7 +7,6 @@ export default class HubScene extends Phaser.Scene {
   constructor() {
     super("HubScene");
     this.player = null;
-    this.statsText = null;
     this.playerId = null;
     this.trainingBtn = null;
     this.blinkingTween = null;
@@ -20,6 +19,11 @@ export default class HubScene extends Phaser.Scene {
     this.load.image("defender", "/characters/defender.png");
     this.load.image("midfielder", "/characters/midfielder.png");
     this.load.image("attacker", "/characters/attacker.png");
+
+    // ✅ preload new icons
+    this.load.image("xp_icon", "/icons/xp.png");
+    this.load.image("dollar_icon", "/icons/dollars.png");
+    this.load.image("whistle_icon", "/icons/whistle.png");
   }
 
   async create() {
@@ -30,17 +34,56 @@ export default class HubScene extends Phaser.Scene {
       .setOrigin(0.5)
       .setDisplaySize(width, height);
 
-    // Player ID
     this.playerId = this.registry.get("playerId");
 
-    // HUD will be updated later
-    this.statsText = this.add.text(500, 20, "Loading player...", {
+    // 📊 HUD panel background
+    this.statsBox = this.add.rectangle(300, 50, 200, 200, 0x0c2f0c, 0.95)
+      .setStrokeStyle(4, 0xffffff)
+      .setOrigin(0, 0);
+
+    // ✅ Level text (top row)
+    this.levelText = this.add.text(350, 55, "Level 1", {
       fontFamily: '"Luckiest Guy", sans-serif',
-      fontSize: "28px",
+      fontSize: "32px",
       color: "#ffffff",
-      backgroundColor: "#0c2f0c",
-      padding: { x: 10, y: 6 },
     }).setOrigin(0, 0);
+
+        // ✅ XP row (icon + number, right of level)
+    this.add.image(310, 110, "xp_icon")
+      .setDisplaySize(64, 64)
+      .setOrigin(0, 0.5);
+    this.textures.get("xp_icon").setFilter(Phaser.Textures.FilterMode.NEAREST);
+
+    this.xpText = this.add.text(380, 105, "0", {
+      fontFamily: '"Luckiest Guy", sans-serif',
+      fontSize: "22px",
+      color: "#ffffff",
+    }).setOrigin(0, 0.5);
+
+    // ✅ Dollars row
+    this.add.image(310, 165, "dollar_icon")
+      .setDisplaySize(64, 64)
+      .setOrigin(0, 0.5);
+    this.textures.get("dollar_icon").setFilter(Phaser.Textures.FilterMode.NEAREST);
+
+    this.dollarsText = this.add.text(380, 160, "0", {
+      fontFamily: '"Luckiest Guy", sans-serif',
+      fontSize: "22px",
+      color: "#ffffff",
+    }).setOrigin(0, 0.5);
+
+    // ✅ Whistles row
+    this.add.image(310, 220, "whistle_icon")
+      .setDisplaySize(64, 64)
+      .setOrigin(0, 0.5);
+    this.textures.get("whistle_icon").setFilter(Phaser.Textures.FilterMode.NEAREST);
+
+    this.whistleText = this.add.text(380, 215, "0", {
+      fontFamily: '"Luckiest Guy", sans-serif',
+      fontSize: "22px",
+      color: "#ffffff",
+    }).setOrigin(0, 0.5);
+
 
     // Back button
     const backBtn = this.add.text(80, 40, "← Back", {
@@ -82,14 +125,13 @@ export default class HubScene extends Phaser.Scene {
       }
     });
 
-    // 🔄 Poll player state every 5 seconds
+    // 🔄 Poll player every second
     this.time.addEvent({
       delay: 1000,
       loop: true,
       callback: () => this.refreshPlayer(),
     });
 
-    // Initial fetch
     this.refreshPlayer();
   }
 
@@ -101,12 +143,10 @@ export default class HubScene extends Phaser.Scene {
       const updated = await res.json();
       this.player = updated;
 
-      // Update HUD
-      this.statsText.setText(
-        `Level ${updated.level} (XP: ${updated.xp})\nDollars: ${updated.dollars}`
-      );
-
-
+      this.levelText.setText(`Level ${updated.level}`);
+      this.xpText.setText(`${updated.xp}`);
+      this.dollarsText.setText(`${updated.dollars}`);
+      this.whistleText.setText(`${updated.whistles || 0}`);
 
       // Blink logic
       const now = new Date();
@@ -121,7 +161,7 @@ export default class HubScene extends Phaser.Scene {
   }
 
   startBlinking() {
-    if (this.blinkingTween) return; // already blinking
+    if (this.blinkingTween) return;
     this.blinkingTween = this.tweens.add({
       targets: this.trainingBtn,
       alpha: 0.3,

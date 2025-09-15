@@ -86,6 +86,8 @@ export default class LoginScene extends Phaser.Scene {
       padding: { x: 10, y: 5 },
     }).setOrigin(0.5).setInteractive({ useHandCursor: true });
 
+    backBtn.on("pointerover", () => backBtn.setStyle({ color: "#ffcc00" }));
+    backBtn.on("pointerout", () => backBtn.setStyle({ color: "#ffffff" }));
     backBtn.on("pointerdown", () => {
       this.scene.start("StartScene");
     });
@@ -99,6 +101,8 @@ export default class LoginScene extends Phaser.Scene {
       padding: { x: 20, y: 10 },
     }).setOrigin(0.5).setInteractive({ useHandCursor: true });
 
+    createBtn.on("pointerover", () => createBtn.setStyle({ color: "#ffcc00" }));
+    createBtn.on("pointerout", () => createBtn.setStyle({ color: "#ffffff" }));    
     createBtn.on("pointerdown", () => {
       this.scene.start("RoleSelectScene");
     });

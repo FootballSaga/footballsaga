@@ -239,6 +239,9 @@ export default class TrainingScene extends Phaser.Scene {
       backgroundColor: "#7a1f1f",
       padding: { x: 10, y: 5 },
     }).setOrigin(0.5).setInteractive();
+
+    backBtn.on("pointerover", () => backBtn.setStyle({ color: "#ffcc00" }));
+    backBtn.on("pointerout", () => backBtn.setStyle({ color: "#ffffff" }));
     backBtn.on("pointerdown", () => this.scene.start("HubScene"));
 
     // defaults: disabled until fetch resolves

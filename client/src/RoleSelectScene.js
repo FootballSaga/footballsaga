@@ -16,6 +16,7 @@ export default class RoleSelectScene extends Phaser.Scene {
     this.descBox = null;
     this.descTitle = null;
     this.descBody = null;
+    this.descIcons = {}; // store icons for each role
     this.descriptions = {};
     this.overlay = null;
   }
@@ -27,6 +28,12 @@ export default class RoleSelectScene extends Phaser.Scene {
     this.load.image("defender", "/characters/defender.png");
     this.load.image("midfielder", "/characters/midfielder.png");
     this.load.image("attacker", "/characters/attacker.png");
+
+    // Role icons
+    this.load.image("goalkeeper_icon", "/icons/goalkeeper_icon_64.png");
+    this.load.image("defender_icon", "/icons/defender_icon_64.png");
+    this.load.image("midfielder_icon", "/icons/midfielder_icon_64.png");
+    this.load.image("attacker_icon", "/icons/attacker_icon_64.png");
   }
 
   create() {
@@ -43,7 +50,7 @@ export default class RoleSelectScene extends Phaser.Scene {
       color: "#000000ff",
     }).setOrigin(0.5);
 
-    this.baseScale = Math.min(width / 2000 , height / 2000);
+    this.baseScale = Math.min(width / 2000, height / 2000);
 
     // overlay
     this.overlay = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.3)
@@ -62,22 +69,10 @@ export default class RoleSelectScene extends Phaser.Scene {
 
     // role descriptions
     this.descriptions = {
-      goalkeeper: { 
-        title: "GOALKEEPER", 
-        text: "Dives like a cat, but can’t catch a bus on time!" 
-      },
-      defender: { 
-        title: "DEFENDER", 
-        text: "A brick wall with legs, loves sliding more than playground kids." 
-      },
-      midfielder: { 
-        title: "MIDFIELDER", 
-        text: "Runs marathons during matches, still late for dinner." 
-      },
-      attacker: { 
-        title: "ATTACKER", 
-        text: "Shoots more than action movies, but misses the easy ones." 
-      },
+      goalkeeper: { title: "GOALKEEPER", text: "Dives like a cat, but can’t catch a bus on time!" },
+      defender:   { title: "DEFENDER",   text: "A brick wall with legs, loves sliding more than playground kids." },
+      midfielder: { title: "MIDFIELDER", text: "Runs marathons during matches, still late for dinner." },
+      attacker:   { title: "ATTACKER",   text: "Shoots more than action movies, but misses the easy ones." },
     };
 
     roles.forEach((role) => {
@@ -90,10 +85,23 @@ export default class RoleSelectScene extends Phaser.Scene {
 
       this.sprites[role] = sprite;
 
+      // Create a separate icon for each role (hidden initially)
+      const icon = this.add.image(char.x, char.y, `${role}_icon`)
+        .setVisible(false)
+        .setDepth(3);
+
+      this.descIcons[role] = icon;
+
       sprite.on("pointerdown", () => {
         this.showDescription(role, sprite);
       });
     });
+
+    // ✅ Set custom position/size for each icon
+    this.descIcons.goalkeeper.setPosition(width / 2 - 542, height - 277).setDisplaySize(64, 64);
+    this.descIcons.defender.setPosition(width / 2 - 120, height - 280).setDisplaySize(64, 64);
+    this.descIcons.midfielder.setPosition(width / 2 + 330, height - 280).setDisplaySize(64, 64);
+    this.descIcons.attacker.setPosition(width / 2 + 745, height - 280).setDisplaySize(64, 64);
 
     // description box
     this.descBox = this.add.rectangle(width / 2, height - 250, 650, 140, 0x0c2f0c, 0.95)
@@ -118,9 +126,7 @@ export default class RoleSelectScene extends Phaser.Scene {
     }).setOrigin(0.5).setVisible(false).setDepth(2);
 
     // overlay click closes everything
-    this.overlay.on("pointerdown", () => {
-      this.closeOverlay();
-    });
+    this.overlay.on("pointerdown", () => this.closeOverlay());
 
     // name input
     this.add.text(width / 2 - 330, height - 120, "NAME:", {
@@ -199,8 +205,11 @@ export default class RoleSelectScene extends Phaser.Scene {
       fontSize: "32px",
       color: "#ffffff",
       backgroundColor: "#7a1f1f",
-      padding: { x: 10, y: 5 },
+      padding: { x: 10, y: 10 },
     }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+
+    backBtn.on("pointerover", () => backBtn.setStyle({ color: "#ffcc00" }));
+    backBtn.on("pointerout", () => backBtn.setStyle({ color: "#ffffff" }));
     backBtn.on("pointerdown", () => this.scene.start("StartScene"));
   }
 
@@ -208,14 +217,7 @@ export default class RoleSelectScene extends Phaser.Scene {
     const { height } = this.scale;
     const { title, text } = this.descriptions[role];
 
-    // dim all except selected (only sprites now)
-    Object.entries(this.sprites).forEach(([r, s]) => {
-      if (r === role) {
-        s.setAlpha(1);
-      } else {
-        s.setAlpha(0.4);
-      }
-    });
+    Object.entries(this.sprites).forEach(([r, s]) => s.setAlpha(r === role ? 1 : 0.4));
 
     if (this.selected && this.selected !== role) {
       const prevSprite = this.sprites[this.selected];
@@ -231,25 +233,34 @@ export default class RoleSelectScene extends Phaser.Scene {
     this.descTitle.setText(title);
     this.descBody.setText(text);
 
+    Object.values(this.descIcons).forEach(icon => icon.setVisible(false));
+    const icon = this.descIcons[role];
+    icon.setVisible(true);
+
     this.descBox.setVisible(true);
     this.descTitle.setVisible(true);
     this.descBody.setVisible(true);
-
     this.overlay.setVisible(true);
 
-    this.tweens.add({
-      targets: sprite,
-      scale: this.baseScale * 1.2,
-      duration: 400,
-      ease: "Back.easeOut",
-    });
+    // Animate sprite scaling (unchanged)
+    this.tweens.add({ targets: sprite, scale: this.baseScale * 1.2, duration: 400, ease: "Back.easeOut" });
 
+    // ✅ Scale animation for box/title/body ONLY, fade for icon
     [this.descBox, this.descTitle, this.descBody].forEach(el => el.setScale(0));
+    icon.setAlpha(0);
+
     this.tweens.add({
       targets: [this.descBox, this.descTitle, this.descBody],
       scale: 1,
       duration: 300,
       ease: "Back.easeOut"
+    });
+
+    this.tweens.add({
+      targets: icon,
+      alpha: 1,
+      duration: 300,
+      ease: "Sine.easeOut"
     });
   }
 
@@ -261,18 +272,11 @@ export default class RoleSelectScene extends Phaser.Scene {
     this.descBox.setVisible(false);
     this.descTitle.setVisible(false);
     this.descBody.setVisible(false);
+    Object.values(this.descIcons).forEach(icon => icon.setVisible(false));
 
-    // restore brightness
-    Object.entries(this.sprites).forEach(([r, s]) => {
-      s.setAlpha(1);
-    });
+    Object.entries(this.sprites).forEach(([r, s]) => s.setAlpha(1));
 
-    this.tweens.add({
-      targets: sprite,
-      scale: this.baseScale,
-      duration: 300,
-      ease: "Sine.easeOut"
-    });
+    this.tweens.add({ targets: sprite, scale: this.baseScale, duration: 300, ease: "Sine.easeOut" });
 
     this.selected = null;
   }
@@ -302,10 +306,7 @@ export default class RoleSelectScene extends Phaser.Scene {
       const res = await fetch(`${API}/players`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          username: this.playerName.trim(),
-          role: this.selected
-        }),
+        body: JSON.stringify({ username: this.playerName.trim(), role: this.selected }),
       });
       const player = await res.json();
       this.registry.set("playerId", player.id);

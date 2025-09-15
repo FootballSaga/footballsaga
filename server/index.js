@@ -90,6 +90,22 @@ app.get("/players/:id", async (req, res) => {
   }
 });
 
+// === [ADDED] Delete player ===
+app.delete("/players/:id", async (req, res) => {
+  const { id } = req.params;
+  try {
+    const result = await pool.query("DELETE FROM players WHERE id = $1 RETURNING *", [id]);
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Player not found" });
+    }
+    res.json({ message: "Player deleted", player: result.rows[0] });
+  } catch (err) {
+    console.error("Delete player error:", err);
+    res.status(500).json({ error: "Could not delete player" });
+  }
+});
+// === end new route ===
+
 // Start training (auto-uses ticket)
 app.post("/players/:id/start-training", async (req, res) => {
   const { id } = req.params;
@@ -184,14 +200,11 @@ app.post("/players/:id/whistle-to-ticket", async (req, res) => {
     );
 
     if (updated.rows.length === 0) {
-      // [ADDED] informative error if max or no whistles
-      // We can check current to be explicit:
       const cur = await pool.query("SELECT tickets, whistles FROM players WHERE id = $1", [id]);
       if (cur.rows.length === 0) return res.status(404).json({ error: "Player not found" });
       const { tickets, whistles } = cur.rows[0];
       if (tickets >= 10) return res.status(400).json({ error: "Cannot exceed max tickets" });
       if (whistles <= 0) return res.status(400).json({ error: "No whistles available" });
-      // Fallback:
       return res.status(400).json({ error: "Cannot convert whistle to ticket" });
     }
 

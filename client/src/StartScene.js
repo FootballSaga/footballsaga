@@ -36,8 +36,8 @@ export default class StartScene extends Phaser.Scene {
       padding: { x: 24, y: 12 },
     }).setOrigin(0.5).setInteractive({ useHandCursor: true });
 
-    loginBtn.on("pointerover", () => loginBtn.setStyle({ color: "#aaffaa" })); // hover light green
-    loginBtn.on("pointerout", () => loginBtn.setStyle({ color: "#fdf5e6" }));
+    loginBtn.on("pointerover", () => loginBtn.setStyle({ color: "#ffcc00" }));
+    loginBtn.on("pointerout", () => loginBtn.setStyle({ color: "#ffffff" }));
     loginBtn.on("pointerdown", () => this.scene.start("LoginScene"));
 
     this.add.text(this.scale.width - 150, 950, "Already have an account?", {
@@ -55,8 +55,8 @@ export default class StartScene extends Phaser.Scene {
       padding: { x: 24, y: 12 },
     }).setOrigin(0.5).setInteractive({ useHandCursor: true });
 
-    createBtn.on("pointerover", () => createBtn.setStyle({ color: "#aaffaa" }));
-    createBtn.on("pointerout", () => createBtn.setStyle({ color: "#fdf5e6" }));
+    createBtn.on("pointerover", () => createBtn.setStyle({ color: "#ffcc00" }));
+    createBtn.on("pointerout", () => createBtn.setStyle({ color: "#ffffff" }));
     createBtn.on("pointerdown", () => this.scene.start("RoleSelectScene"));
   }
 }

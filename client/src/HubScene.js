@@ -94,6 +94,8 @@ export default class HubScene extends Phaser.Scene {
       padding: { x: 10, y: 5 },
     }).setOrigin(0.5).setInteractive({ useHandCursor: true });
 
+    backBtn.on("pointerover", () => backBtn.setStyle({ color: "#ffcc00" }));
+    backBtn.on("pointerout", () => backBtn.setStyle({ color: "#ffffff" }));
     backBtn.on("pointerdown", () => {
       this.scene.start("LoginScene");
     });
@@ -124,6 +126,22 @@ export default class HubScene extends Phaser.Scene {
         this.scene.start(this.getTrainingScene(last_training), { autoClaim: true });
       }
     });
+
+        // Inside HubScene create():
+    const profileBtn = this.add.text(width - 160, height - 60, "PROFILE", {
+      fontFamily: '"Luckiest Guy", sans-serif',
+      fontSize: "32px",
+      color: "#ffffff",
+      backgroundColor: "#0c2f0c",
+      padding: { x: 20, y: 10 },
+    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+
+    profileBtn.on("pointerover", () => profileBtn.setStyle({ color: "#ffcc00" }));
+    profileBtn.on("pointerout", () => profileBtn.setStyle({ color: "#ffffff" }));
+    profileBtn.on("pointerdown", () => {
+      this.scene.start("ProfileScene");
+    });
+
 
     // 🔄 Poll player every second
     this.time.addEvent({

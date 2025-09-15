@@ -52,6 +52,8 @@ export default class BallScene extends Phaser.Scene {
       padding: { x: 10, y: 5 },
     }).setOrigin(0.5).setInteractive();
 
+    backBtn.on("pointerover", () => backBtn.setStyle({ color: "#ffcc00" }));
+    backBtn.on("pointerout", () => backBtn.setStyle({ color: "#ffffff" }));
     backBtn.on("pointerdown", async () => {
       if (this.readyToClaim) {
         await this.finishTraining();
@@ -112,6 +114,8 @@ export default class BallScene extends Phaser.Scene {
       padding: { x: 20, y: 10 },
     }).setOrigin(0.5).setInteractive();
 
+    this.claimBtn.on("pointerover", () => this.claimBtn.setStyle({ color: "#ffcc00" }));
+    this.claimBtn.on("pointerout", () => this.claimBtn.setStyle({ color: "#ffffff" }));
     this.claimBtn.on("pointerdown", async () => {
       await this.finishTraining();
       this.scene.start("HubScene");

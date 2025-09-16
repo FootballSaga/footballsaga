@@ -1,4 +1,3 @@
-// backend/index.js
 const express = require("express");
 const cors = require("cors");
 const { Pool } = require("pg");
@@ -20,14 +19,33 @@ const trainings = {
   gym:     { duration: 30, rewards: { xp: 10, dollars: 0 } },
   running: { duration: 45, rewards: { xp: 5,  dollars: 5 } },
   ball:    { duration: 60, rewards: { xp: 15, dollars: 0 } },
+  saving_drills:   { duration: 60, rewards: { xp: 20, dollars: 0 } },
+  tackling_drills: { duration: 60, rewards: { xp: 20, dollars: 0 } },
+  vision_drills:   { duration: 60, rewards: { xp: 20, dollars: 0 } },
+  shooting_drills: { duration: 60, rewards: { xp: 20, dollars: 0 } },
 };
 
-const DAILY_TICKETS = 10; // [REFERENCE] daily max we're enforcing for top-up
+const DAILY_TICKETS = 10;
+
+// helper to generate 3 trainings (1 special + 2 random basics)
+function generateTrainingsForPlayer(role) {
+  const baseTrainings = ["gym", "running", "ball"];
+  const special = {
+    goalkeeper: "saving_drills",
+    defender: "tackling_drills",
+    midfielder: "vision_drills",
+    attacker: "shooting_drills",
+  }[role];
+
+  // shuffle base trainings and pick first 2
+  const shuffled = baseTrainings.sort(() => Math.random() - 0.5);
+  const chosen = shuffled.slice(0, 2);
+  return JSON.stringify([...chosen, special]);
+}
 
 // --- Reset tickets if needed ---
 async function resetTicketsIfNeeded(playerId) {
-  const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
-
+  const today = new Date().toISOString().slice(0, 10);
   const result = await pool.query(
     `UPDATE players
      SET tickets = $1, last_ticket_reset = $2
@@ -36,9 +54,7 @@ async function resetTicketsIfNeeded(playerId) {
      RETURNING *`,
     [DAILY_TICKETS, today, playerId]
   );
-
   if (result.rows.length > 0) return result.rows[0];
-
   const fresh = await pool.query("SELECT * FROM players WHERE id = $1", [playerId]);
   return fresh.rows[0];
 }
@@ -47,18 +63,20 @@ async function resetTicketsIfNeeded(playerId) {
 
 app.get("/", (_req, res) => res.json({ message: "Striker Saga backend running!" }));
 
-// Create new player (unchanged; your DB default handles whistles=15)
+// Create new player
 app.post("/players", async (req, res) => {
   const { username, role } = req.body;
   if (!username || !role) return res.status(400).json({ error: "username and role are required" });
 
   try {
     const today = new Date().toISOString().slice(0, 10);
+    let initialSpecial = 1; // can be adjusted later
+
     const result = await pool.query(
-      `INSERT INTO players (username, role, level, xp, dollars, strength, speed, stamina, tickets, last_ticket_reset)
-       VALUES ($1, $2, 1, 0, 0, 1, 1, 1, $3, $4)
+      `INSERT INTO players (username, role, level, xp, dollars, strength, speed, stamina, special_stat, tickets, last_ticket_reset, available_trainings)
+       VALUES ($1, $2, 1, 0, 0, 1, 1, 1, $3, $4, $5, $6)
        RETURNING *`,
-      [username, role, DAILY_TICKETS, today]
+      [username, role, initialSpecial, DAILY_TICKETS, today, generateTrainingsForPlayer(role)]
     );
     res.json(result.rows[0]);
   } catch (err) {
@@ -78,11 +96,20 @@ app.get("/players", async (_req, res) => {
   }
 });
 
-// Get single player
+// Get single player (generate trainings if missing)
 app.get("/players/:id", async (req, res) => {
   try {
     let player = await resetTicketsIfNeeded(req.params.id);
     if (!player) return res.status(404).json({ error: "Player not found" });
+
+    if (!player.available_trainings) {
+      const newTrainings = generateTrainingsForPlayer(player.role);
+      await pool.query(
+        "UPDATE players SET available_trainings = $1 WHERE id = $2",
+        [newTrainings, player.id]
+      );
+      player.available_trainings = newTrainings;
+    }
     res.json(player);
   } catch (err) {
     console.error("Get player error:", err);
@@ -90,23 +117,20 @@ app.get("/players/:id", async (req, res) => {
   }
 });
 
-// === [ADDED] Delete player ===
+// Delete player
 app.delete("/players/:id", async (req, res) => {
   const { id } = req.params;
   try {
     const result = await pool.query("DELETE FROM players WHERE id = $1 RETURNING *", [id]);
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: "Player not found" });
-    }
+    if (result.rows.length === 0) return res.status(404).json({ error: "Player not found" });
     res.json({ message: "Player deleted", player: result.rows[0] });
   } catch (err) {
     console.error("Delete player error:", err);
     res.status(500).json({ error: "Could not delete player" });
   }
 });
-// === end new route ===
 
-// Start training (auto-uses ticket)
+// Start training
 app.post("/players/:id/start-training", async (req, res) => {
   const { id } = req.params;
   const { type } = req.body;
@@ -116,7 +140,6 @@ app.post("/players/:id/start-training", async (req, res) => {
   try {
     let player = await resetTicketsIfNeeded(id);
     if (!player) return res.status(404).json({ error: "Player not found" });
-
     if (player.tickets <= 0) return res.status(400).json({ error: "No tickets left today" });
     if (player.training_end && new Date(player.training_end) > new Date())
       return res.status(400).json({ error: "Already training" });
@@ -157,44 +180,29 @@ app.post("/players/:id/finish-training", async (req, res) => {
        SET xp = xp + $1,
            dollars = dollars + $2,
            training_end = NULL,
-           last_training = NULL
+           last_training = NULL,
+           available_trainings = NULL -- reset so new set will be generated
        WHERE id = $3
        RETURNING *`,
       [rewards.xp, rewards.dollars, id]
     );
 
-    player = updated.rows[0];
-
-    // Level-up loop
-    let xpNeeded = player.level * 100;
-    while (player.xp >= xpNeeded) {
-      const newLevel = player.level + 1;
-      const leftoverXp = player.xp - xpNeeded;
-      const lvlUp = await pool.query(
-        "UPDATE players SET level = $1, xp = $2 WHERE id = $3 RETURNING *",
-        [newLevel, leftoverXp, id]
-      );
-      player = lvlUp.rows[0];
-      xpNeeded = player.level * 100;
-    }
-
-    res.json(player);
+    res.json(updated.rows[0]);
   } catch (err) {
     console.error("Finish training error:", err);
     res.status(500).json({ error: "Could not finish training" });
   }
 });
 
-// === [ADDED] Convert 1 whistle -> +1 ticket (only if tickets < 10) ===
+// Whistle → ticket
 app.post("/players/:id/whistle-to-ticket", async (req, res) => {
   const { id } = req.params;
-
   try {
     const updated = await pool.query(
       `UPDATE players
        SET whistles = whistles - 1,
            tickets  = tickets + 1
-       WHERE id = $1 AND whistles > 0 AND tickets < 10   -- [ADDED] guard: cannot exceed 10
+       WHERE id = $1 AND whistles > 0 AND tickets < 10
        RETURNING *`,
       [id]
     );
@@ -214,7 +222,6 @@ app.post("/players/:id/whistle-to-ticket", async (req, res) => {
     res.status(500).json({ error: "Could not convert whistle to ticket" });
   }
 });
-// === end new route ===
 
 const PORT = 4000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

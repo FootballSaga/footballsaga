@@ -8,8 +8,9 @@ export default class ProfileScene extends Phaser.Scene {
     this.playerId = null;
     this.player = null;
     this.statsTexts = {};
-    this.roleIcons = {}; // NEW: store role icons
-    this.roleIconImage = null; // NEW: actual image in scene
+    this.roleIcons = {};
+    this.roleIconImage = null;
+    this.specialIcon = null; // NEW: special stat icon reference
   }
 
   preload() {
@@ -21,11 +22,17 @@ export default class ProfileScene extends Phaser.Scene {
     this.load.image("speed_icon", "/icons/speed_icon.png");
     this.load.image("stamina_icon", "/icons/stamina_icon.png");
 
-    // NEW: role icons
-    this.load.image("goalkeeper_icon", "/icons/goalkeeper_icon_64.png");
-    this.load.image("defender_icon", "/icons/defender_icon_64.png");
-    this.load.image("midfielder_icon", "/icons/midfielder_icon_64.png");
-    this.load.image("attacker_icon", "/icons/attacker_icon_64.png");
+    // NEW: special stat icons
+    this.load.image("goalkeeper_special_icon", "/icons/saving_icon_64.png");
+    this.load.image("defender_special_icon", "/icons/tackle_icon_64.png");
+    this.load.image("midfielder_special_icon", "/icons/vision_icon_64.png");
+    this.load.image("attacker_special_icon", "/icons/shooting_icon_64.png");
+
+    // Role icons
+    this.load.image("goalkeeper_icon", "/icons/goalkeeper_icon_128.png");
+    this.load.image("defender_icon", "/icons/defender_icon_128.png");
+    this.load.image("midfielder_icon", "/icons/midfielder_icon_128.png");
+    this.load.image("attacker_icon", "/icons/attacker_icon_128.png");
   }
 
   async create() {
@@ -40,18 +47,16 @@ export default class ProfileScene extends Phaser.Scene {
       .setOrigin(0.5)
       .setScale(0.85);
 
-    // Player name (without role text now)
+    // Player name text
     this.nameText = this.add.text(width * 0.25, height * 0.20, "...", {
       fontFamily: '"Luckiest Guy", sans-serif',
-      fontSize: "50px",
-      color: "#ffff00",
-    }).setOrigin(0.5);
+      fontSize: "64px",
+      color: "#ffffffff",
+    }).setOrigin(0, 0.5);
 
-    // NEW: Add placeholder for role icon next to name
-    this.roleIconImage = this.add.image(width * 0.25 + 200, height * 0.20)
-      .setDisplaySize(64, 64)
+    this.roleIconImage = this.add.image(0, 0)
       .setVisible(false)
-      .setOrigin(0.5);
+      .setOrigin(0, 0.5);
 
     this.levelText = this.add.text(width * 0.25, height * 0.27, "Level ...", {
       fontFamily: '"Luckiest Guy", sans-serif',
@@ -94,6 +99,14 @@ export default class ProfileScene extends Phaser.Scene {
       color: "#ffffff",
     }).setOrigin(0, 0.5);
 
+    // NEW: special stat row
+    this.specialIcon = this.add.image(iconX, statsY + spacing * 3, "goalkeeper_special_icon").setDisplaySize(64, 64);
+    this.statsTexts.special = this.add.text(textX, statsY + spacing * 3, "Special: ...", {
+      fontFamily: '"Luckiest Guy", sans-serif',
+      fontSize: "40px",
+      color: "#ffffff",
+    }).setOrigin(0, 0.5);
+
     const backBtn = this.add.text(80, 40, "← Back", {
       fontFamily: '"Luckiest Guy", sans-serif',
       fontSize: "32px",
@@ -113,10 +126,21 @@ export default class ProfileScene extends Phaser.Scene {
       const res = await fetch(`${API}/players/${this.playerId}`);
       this.player = await res.json();
 
-      // Name and role icon
+      // Name + icon centering
       this.nameText.setText(`${this.player.username}`);
-      this.roleIconImage.setTexture(`${this.player.role}_icon`);
-      this.roleIconImage.setVisible(true);
+      const nameWidth = this.nameText.width;
+      const iconSize = 128;
+      const spacing = 1;
+      const totalWidth = nameWidth + spacing + iconSize;
+      const centerX = this.scale.width * 0.25;
+      const startX = centerX - totalWidth / 2;
+
+      this.nameText.setX(startX);
+      this.roleIconImage
+        .setTexture(`${this.player.role}_icon`)
+        .setDisplaySize(iconSize, iconSize)
+        .setPosition(startX + nameWidth + spacing, this.nameText.y)
+        .setVisible(true);
 
       // Level & XP
       this.levelText.setText(`Level ${this.player.level}`);
@@ -129,6 +153,17 @@ export default class ProfileScene extends Phaser.Scene {
       this.statsTexts.strength.setText(`Strength: ${this.player.strength}`);
       this.statsTexts.speed.setText(`Speed: ${this.player.speed}`);
       this.statsTexts.stamina.setText(`Stamina: ${this.player.stamina}`);
+
+      // NEW: special stat text + icon
+      this.statsTexts.special.setText(
+        `${
+          this.player.role === "goalkeeper" ? "Saving" :
+          this.player.role === "defender"   ? "Tackling" :
+          this.player.role === "midfielder" ? "Vision" :
+          "Shooting"
+        }: ${this.player.special_stat}`
+      );
+      this.specialIcon.setTexture(`${this.player.role}_special_icon`);
     } catch (e) {
       console.error("Failed to fetch profile:", e);
     }

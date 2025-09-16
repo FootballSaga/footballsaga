@@ -30,10 +30,10 @@ export default class RoleSelectScene extends Phaser.Scene {
     this.load.image("attacker", "/characters/attacker.png");
 
     // Role icons
-    this.load.image("goalkeeper_icon", "/icons/goalkeeper_icon_64.png");
-    this.load.image("defender_icon", "/icons/defender_icon_64.png");
-    this.load.image("midfielder_icon", "/icons/midfielder_icon_64.png");
-    this.load.image("attacker_icon", "/icons/attacker_icon_64.png");
+    this.load.image("goalkeeper_icon", "/icons/goalkeeper_icon_128.png");
+    this.load.image("defender_icon", "/icons/defender_icon_128.png");
+    this.load.image("midfielder_icon", "/icons/midfielder_icon_128.png");
+    this.load.image("attacker_icon", "/icons/attacker_icon_128.png");
   }
 
   create() {
@@ -88,7 +88,8 @@ export default class RoleSelectScene extends Phaser.Scene {
       // Create a separate icon for each role (hidden initially)
       const icon = this.add.image(char.x, char.y, `${role}_icon`)
         .setVisible(false)
-        .setDepth(3);
+        .setDepth(3)
+        .setDisplaySize(128, 128);
 
       this.descIcons[role] = icon;
 
@@ -97,14 +98,8 @@ export default class RoleSelectScene extends Phaser.Scene {
       });
     });
 
-    // ✅ Set custom position/size for each icon
-    this.descIcons.goalkeeper.setPosition(width / 2 - 542, height - 277).setDisplaySize(64, 64);
-    this.descIcons.defender.setPosition(width / 2 - 120, height - 280).setDisplaySize(64, 64);
-    this.descIcons.midfielder.setPosition(width / 2 + 330, height - 280).setDisplaySize(64, 64);
-    this.descIcons.attacker.setPosition(width / 2 + 745, height - 280).setDisplaySize(64, 64);
-
     // description box
-    this.descBox = this.add.rectangle(width / 2, height - 250, 650, 140, 0x0c2f0c, 0.95)
+    this.descBox = this.add.rectangle(width / 2, height - 250, 620, 200, 0x0c2f0c, 0.95)
       .setStrokeStyle(4, 0xffffff)
       .setOrigin(0.5)
       .setVisible(false)
@@ -112,10 +107,10 @@ export default class RoleSelectScene extends Phaser.Scene {
 
     this.descTitle = this.add.text(width / 2, height - 280, "", {
       fontFamily: "Luckiest Guy, sans-serif",
-      fontSize: "32px",
+      fontSize: "50px",
       color: "#ffcc00",
       align: "center"
-    }).setOrigin(0.5).setVisible(false).setDepth(2);
+    }).setOrigin(0, 0.5).setVisible(false).setDepth(2); // LEFT aligned so we can center title+icon manually
 
     this.descBody = this.add.text(width / 2, height - 230, "", {
       fontFamily: "Luckiest Guy, sans-serif",
@@ -226,15 +221,24 @@ export default class RoleSelectScene extends Phaser.Scene {
 
     this.selected = role;
 
-    this.descBox.setPosition(sprite.x, height - 250);
-    this.descTitle.setPosition(sprite.x, height - 280);
-    this.descBody.setPosition(sprite.x, height - 230);
+    this.descBox.setPosition(sprite.x, height - 300);
+    this.descBody.setPosition(this.descBox.x, this.descBox.y + 50);
 
     this.descTitle.setText(title);
     this.descBody.setText(text);
 
-    Object.values(this.descIcons).forEach(icon => icon.setVisible(false));
+    // Position title + icon together
     const icon = this.descIcons[role];
+    Object.values(this.descIcons).forEach(i => i.setVisible(false));
+
+    const iconWidth = icon.displayWidth;
+    const spacing = 5; // 🔧 ADJUST THIS TO MOVE ICON FURTHER/NEARER
+
+    const totalWidth = this.descTitle.width + spacing + iconWidth;
+    const startX = this.descBox.x - totalWidth / 2;
+
+    this.descTitle.setPosition(startX, this.descBox.y - 30);
+    icon.setPosition(this.descTitle.x + this.descTitle.width + spacing + iconWidth / 2, this.descBox.y - 30);
     icon.setVisible(true);
 
     this.descBox.setVisible(true);
@@ -242,25 +246,15 @@ export default class RoleSelectScene extends Phaser.Scene {
     this.descBody.setVisible(true);
     this.overlay.setVisible(true);
 
-    // Animate sprite scaling (unchanged)
     this.tweens.add({ targets: sprite, scale: this.baseScale * 1.2, duration: 400, ease: "Back.easeOut" });
 
-    // ✅ Scale animation for box/title/body ONLY, fade for icon
-    [this.descBox, this.descTitle, this.descBody].forEach(el => el.setScale(0));
-    icon.setAlpha(0);
-
+    // Animate everything together (box, title, body, icon)
+    [this.descBox, this.descTitle, this.descBody, icon].forEach(el => el.setScale(0));
     this.tweens.add({
-      targets: [this.descBox, this.descTitle, this.descBody],
+      targets: [this.descBox, this.descTitle, this.descBody, icon],
       scale: 1,
       duration: 300,
       ease: "Back.easeOut"
-    });
-
-    this.tweens.add({
-      targets: icon,
-      alpha: 1,
-      duration: 300,
-      ease: "Sine.easeOut"
     });
   }
 

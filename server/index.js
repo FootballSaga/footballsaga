@@ -16,28 +16,26 @@ app.use(express.json());
 
 // --- Training Config ---
 const trainings = {
-  gym:     { duration: 30, rewards: { xp: 10, dollars: 0 } },
-  running: { duration: 45, rewards: { xp: 5,  dollars: 5 } },
-  ball:    { duration: 60, rewards: { xp: 15, dollars: 0 } },
-  saving_drills:   { duration: 60, rewards: { xp: 20, dollars: 0 } },
-  tackling_drills: { duration: 60, rewards: { xp: 20, dollars: 0 } },
-  vision_drills:   { duration: 60, rewards: { xp: 20, dollars: 0 } },
-  shooting_drills: { duration: 60, rewards: { xp: 20, dollars: 0 } },
+  gym: { duration: 30 },
+  running: { duration: 45 },
+  ball: { duration: 60 },
+  goalkeeper_special: { duration: 60 },
+  defender_special: { duration: 60 },
+  midfielder_special: { duration: 60 },
+  attacker_special: { duration: 60 },
 };
 
 const DAILY_TICKETS = 10;
 
-// helper to generate 3 trainings (1 special + 2 random basics)
 function generateTrainingsForPlayer(role) {
   const baseTrainings = ["gym", "running", "ball"];
   const special = {
-    goalkeeper: "saving_drills",
-    defender: "tackling_drills",
-    midfielder: "vision_drills",
-    attacker: "shooting_drills",
+    goalkeeper: "goalkeeper_special",
+    defender: "defender_special",
+    midfielder: "midfielder_special",
+    attacker: "attacker_special",
   }[role];
 
-  // shuffle base trainings and pick first 2
   const shuffled = baseTrainings.sort(() => Math.random() - 0.5);
   const chosen = shuffled.slice(0, 2);
   return JSON.stringify([...chosen, special]);
@@ -60,7 +58,6 @@ async function resetTicketsIfNeeded(playerId) {
 }
 
 // --- ROUTES ---
-
 app.get("/", (_req, res) => res.json({ message: "Striker Saga backend running!" }));
 
 // Create new player
@@ -70,7 +67,7 @@ app.post("/players", async (req, res) => {
 
   try {
     const today = new Date().toISOString().slice(0, 10);
-    let initialSpecial = 1; // can be adjusted later
+    let initialSpecial = 1;
 
     const result = await pool.query(
       `INSERT INTO players (username, role, level, xp, dollars, strength, speed, stamina, special_stat, tickets, last_ticket_reset, available_trainings)
@@ -96,7 +93,7 @@ app.get("/players", async (_req, res) => {
   }
 });
 
-// Get single player (generate trainings if missing)
+// Get single player
 app.get("/players/:id", async (req, res) => {
   try {
     let player = await resetTicketsIfNeeded(req.params.id);
@@ -161,7 +158,7 @@ app.post("/players/:id/start-training", async (req, res) => {
   }
 });
 
-// Finish training
+// Finish training (returns reward details)
 app.post("/players/:id/finish-training", async (req, res) => {
   const { id } = req.params;
 
@@ -173,21 +170,99 @@ app.post("/players/:id/finish-training", async (req, res) => {
     if (!player.training_end || new Date(player.training_end) > new Date())
       return res.status(400).json({ error: "Training not finished yet" });
 
-    const rewards = trainings[player.last_training]?.rewards || { xp: 0, dollars: 0 };
+    const L = Number(player.level);
 
+    // XP calculation
+    const xpNeeded = 50 * (L ** 2) + 100 * L;
+    const questsPerLevel = Math.round(1.5 * Math.sqrt(L) * 10) / 10;
+    const baseXpPerQuest = Math.round(xpNeeded / questsPerLevel);
+    const randomFactorXP = 1 + (Math.random() - 0.5) * 0.2;
+    const xpPerQuest = Math.max(1, Math.round(baseXpPerQuest * randomFactorXP));
+
+    // Dollars
+    const baseDollars = 50;
+    const growthPerLevel = 5;
+    const dollarsBeforeRandom = baseDollars + growthPerLevel * (L - 1);
+    const randomFactorDollars = 1 + (Math.random() - 0.5) * 0.2;
+    const dollarsGained = Math.max(1, Math.round(dollarsBeforeRandom * randomFactorDollars));
+
+    // Stat gains + stat name for frontend
+    let strengthGain = 0, speedGain = 0, staminaGain = 0, specialGain = 0;
+    let lastStatGain = null;
+
+    switch (player.last_training) {
+      case "gym":
+        strengthGain = L;
+        lastStatGain = { name: "Strength", value: strengthGain };
+        break;
+      case "running":
+        speedGain = L;
+        lastStatGain = { name: "Speed", value: speedGain };
+        break;
+      case "ball":
+        staminaGain = L;
+        lastStatGain = { name: "Stamina", value: staminaGain };
+        break;
+      case "goalkeeper_special":
+        specialGain = L;
+        lastStatGain = { name: "Goalkeeping", value: specialGain };
+        break;
+      case "defender_special":
+        specialGain = L;
+        lastStatGain = { name: "Tackling", value: specialGain };
+        break;
+      case "midfielder_special":
+        specialGain = L;
+        lastStatGain = { name: "Vision", value: specialGain };
+        break;
+      case "attacker_special":
+        specialGain = L;
+        lastStatGain = { name: "Shooting", value: specialGain };
+        break;
+    }
+
+    // Update player
     let updated = await pool.query(
       `UPDATE players
        SET xp = xp + $1,
            dollars = dollars + $2,
+           strength = strength + $3,
+           speed = speed + $4,
+           stamina = stamina + $5,
+           special_stat = special_stat + $6,
            training_end = NULL,
            last_training = NULL,
-           available_trainings = NULL -- reset so new set will be generated
-       WHERE id = $3
+           available_trainings = NULL
+       WHERE id = $7
        RETURNING *`,
-      [rewards.xp, rewards.dollars, id]
+      [xpPerQuest, dollarsGained, strengthGain, speedGain, staminaGain, specialGain, id]
     );
 
-    res.json(updated.rows[0]);
+    player = updated.rows[0];
+
+    // Level-up loop
+    let xpNeededNext = 50 * Math.pow(player.level, 2) + 100 * player.level;
+    while (player.xp >= xpNeededNext) {
+      const newLevel = player.level + 1;
+      const leftoverXp = player.xp - xpNeededNext;
+
+      const lvlUpRes = await pool.query(
+        "UPDATE players SET level = $1, xp = $2 WHERE id = $3 RETURNING *",
+        [newLevel, leftoverXp, id]
+      );
+
+      player = lvlUpRes.rows[0];
+      xpNeededNext = 50 * Math.pow(player.level, 2) + 100 * player.level;
+    }
+
+    // Return player + reward details
+    res.json({
+      ...player,
+      lastXpGain: xpPerQuest,
+      lastDollarGain: dollarsGained,
+      lastStatGain // 👈 structured object {name, value}
+    });
+
   } catch (err) {
     console.error("Finish training error:", err);
     res.status(500).json({ error: "Could not finish training" });

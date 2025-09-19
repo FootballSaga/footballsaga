@@ -186,13 +186,14 @@ export default class TrainingScene extends Phaser.Scene {
       case "gym": return "GYM 🏋️";
       case "running": return "RUNNING 🏃";
       case "ball": return "BALL ⚽";
-      case "saving_drills": return "SAVING 🧤";
-      case "tackling_drills": return "TACKLING 🛡️";
-      case "vision_drills": return "VISION 👁️";
-      case "shooting_drills": return "SHOOTING 🎯";
+      case "goalkeeper_special": return "SAVING 🧤";
+      case "defender_special": return "TACKLING 🛡️";
+      case "midfielder_special": return "VISION 👁️";
+      case "attacker_special": return "SHOOTING 🎯"; // ✅ fix spelling
       default: return type.toUpperCase();
     }
   }
+
 
   setButtonsEnabled(enabled) {
     this.trainingButtons.forEach((btn) => {
@@ -237,10 +238,10 @@ export default class TrainingScene extends Phaser.Scene {
       case "gym": return "GymScene";
       case "running": return "RunningScene";
       case "ball": return "BallScene";
-      case "saving_drills": return "SavingScene";
-      case "tackling_drills": return "TacklingScene";
-      case "vision_drills": return "VisionScene";
-      case "shooting_drills": return "ShootingScene";
+      case "goalkeeper_special": return "SavingScene";
+      case "defender_special": return "TacklingScene";
+      case "midfielder_special": return "VisionScene";
+      case "attacker_special": return "ShootingScene";
       default: return "TrainingScene";
     }
   }

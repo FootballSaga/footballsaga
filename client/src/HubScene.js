@@ -37,53 +37,61 @@ export default class HubScene extends Phaser.Scene {
     this.playerId = this.registry.get("playerId");
 
     // 📊 HUD panel background
-    this.statsBox = this.add.rectangle(300, 50, 200, 200, 0x0c2f0c, 0.95)
+    this.statsBox = this.add.rectangle(300, 50, 300, 270, 0x0c2f0c, 0.95)
       .setStrokeStyle(4, 0xffffff)
       .setOrigin(0, 0);
 
     // ✅ Level text (top row)
-    this.levelText = this.add.text(350, 55, "Level 1", {
+    this.levelText = this.add.text(400, 60, "Level 1", {
       fontFamily: '"Luckiest Guy", sans-serif',
       fontSize: "32px",
       color: "#ffffff",
     }).setOrigin(0, 0);
 
-        // ✅ XP row (icon + number, right of level)
-    this.add.image(310, 110, "xp_icon")
+    // ✅ XP row (icon + number, right of level)
+    this.add.image(310, 160, "xp_icon")
       .setDisplaySize(64, 64)
       .setOrigin(0, 0.5);
     this.textures.get("xp_icon").setFilter(Phaser.Textures.FilterMode.NEAREST);
 
-    this.xpText = this.add.text(380, 105, "0", {
+
+    // ✅ XP progress text (above the bar)
+    this.xpProgressText = this.add.text(380 + 100, 145, "0 / 0", {
       fontFamily: '"Luckiest Guy", sans-serif',
       fontSize: "22px",
       color: "#ffffff",
-    }).setOrigin(0, 0.5);
+    }).setOrigin(0.5, 1); // anchor bottom so it stays above bar
+
+    // ✅ XP Bar (background + fill)
+    this.xpBarBg = this.add.rectangle(380, 160, 200, 20, 0x444444)
+      .setOrigin(0, 0.5)
+      .setStrokeStyle(2, 0xffffff);
+    this.xpBarFill = this.add.rectangle(380, 160, 0, 20, 0x00ff00)
+      .setOrigin(0, 0.5);
 
     // ✅ Dollars row
-    this.add.image(310, 165, "dollar_icon")
+    this.add.image(310, 220, "dollar_icon")
       .setDisplaySize(64, 64)
       .setOrigin(0, 0.5);
     this.textures.get("dollar_icon").setFilter(Phaser.Textures.FilterMode.NEAREST);
 
-    this.dollarsText = this.add.text(380, 160, "0", {
+    this.dollarsText = this.add.text(380, 220, "0", {
       fontFamily: '"Luckiest Guy", sans-serif',
       fontSize: "22px",
       color: "#ffffff",
     }).setOrigin(0, 0.5);
 
     // ✅ Whistles row
-    this.add.image(310, 220, "whistle_icon")
+    this.add.image(310, 280, "whistle_icon")
       .setDisplaySize(64, 64)
       .setOrigin(0, 0.5);
     this.textures.get("whistle_icon").setFilter(Phaser.Textures.FilterMode.NEAREST);
 
-    this.whistleText = this.add.text(380, 215, "0", {
+    this.whistleText = this.add.text(380, 280, "0", {
       fontFamily: '"Luckiest Guy", sans-serif',
       fontSize: "22px",
       color: "#ffffff",
     }).setOrigin(0, 0.5);
-
 
     // Back button
     const backBtn = this.add.text(80, 40, "← Back", {
@@ -127,10 +135,9 @@ export default class HubScene extends Phaser.Scene {
       }
     });
 
-        // Inside HubScene create():
-    const profileBtn = this.add.text(width - 160, height - 60, "PROFILE", {
+    const profileBtn = this.add.text(width - 160, height * 0.10, "PROFILE", {
       fontFamily: '"Luckiest Guy", sans-serif',
-      fontSize: "32px",
+      fontSize: "42px",
       color: "#ffffff",
       backgroundColor: "#0c2f0c",
       padding: { x: 20, y: 10 },
@@ -141,7 +148,6 @@ export default class HubScene extends Phaser.Scene {
     profileBtn.on("pointerdown", () => {
       this.scene.start("ProfileScene");
     });
-
 
     // 🔄 Poll player every second
     this.time.addEvent({
@@ -162,9 +168,17 @@ export default class HubScene extends Phaser.Scene {
       this.player = updated;
 
       this.levelText.setText(`Level ${updated.level}`);
-      this.xpText.setText(`${updated.xp}`);
       this.dollarsText.setText(`${updated.dollars}`);
       this.whistleText.setText(`${updated.whistles || 0}`);
+
+      // ✅ Update XP bar + progress text
+      const L = updated.level;
+      const xpNeededThisLevel = 50 * (L ** 2) + 100 * L;
+      const progress = Math.min(updated.xp / xpNeededThisLevel, 1);
+      const fullBarWidth = 200;
+      this.xpBarFill.width = fullBarWidth * progress;
+
+      this.xpProgressText.setText(`${updated.xp} / ${xpNeededThisLevel}`);
 
       // Blink logic
       const now = new Date();
@@ -202,6 +216,10 @@ export default class HubScene extends Phaser.Scene {
       case "gym": return "GymScene";
       case "running": return "RunningScene";
       case "ball": return "BallScene";
+      case "goalkeeper_special": return "SavingScene";
+      case "defender_special": return "TacklingScene";
+      case "midfielder_special": return "VisionScene";
+      case "attacker_special": return "ShootingScene";
       default: return "TrainingScene";
     }
   }

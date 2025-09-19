@@ -1,6 +1,7 @@
+// client/src/SavingScene.js
 import axios from "axios";
 const API = "http://localhost:4000";
-const TRAINING_DURATION = 30 * 1000; // 30s
+const TRAINING_DURATION = 60 * 1000; 
 
 export default class SavingScene extends Phaser.Scene {
   constructor() {
@@ -10,30 +11,36 @@ export default class SavingScene extends Phaser.Scene {
     this.trainingStart = null;
     this.progressFill = null;
     this.countdownText = null;
-    this.claimBtn = null;
     this.readyToClaim = false;
+    this.justClaimed = false;
   }
 
   preload() {
-    this.load.image("saving_bg", "/assets/saving_scene.png"); // Create or reuse a BG
+    this.load.image("saving_bg", "/assets/saving_scene.png");
+    this.load.image("xp_icon", "/icons/xp.png");
+    this.load.image("dollar_icon", "/icons/dollars.png");
+    this.load.image("saving_icon", "/icons/saving_icon_64.png");
   }
 
   async create() {
     this.playerId = this.registry.get("playerId");
     const { width, height } = this.scale;
 
+    // Background
     this.add.image(width / 2, height / 2, "saving_bg")
       .setOrigin(0.5)
       .setDisplaySize(width, height);
 
-    this.add.text(width / 2, 100, "🧤 SAVING TRAINING", {
+    this.add.text(width / 2, 100, "SAVING TRAINING", {
       fontFamily: '"Luckiest Guy", sans-serif',
       fontSize: "48px",
       color: "#ffffff",
     }).setOrigin(0.5);
 
-    this.add.rectangle(width / 2, height / 2, 600, 40, 0xffffff, 0.3);
-    this.progressFill = this.add.rectangle(width / 2 - 300, height / 2, 0, 40, 0x00ff00).setOrigin(0, 0.5);
+    // Progress bar
+    this.progressBar = this.add.rectangle(width / 2, height / 2, 600, 40, 0xffffff, 0.3);
+    this.progressFill = this.add.rectangle(width / 2 - 300, height / 2, 0, 40, 0x00ff00)
+      .setOrigin(0, 0.5);
 
     this.countdownText = this.add.text(width / 2, height / 2 + 60, "", {
       fontFamily: '"Luckiest Guy", sans-serif',
@@ -53,8 +60,7 @@ export default class SavingScene extends Phaser.Scene {
 
     backBtn.on("pointerover", () => backBtn.setStyle({ color: "#ffcc00" }));
     backBtn.on("pointerout", () => backBtn.setStyle({ color: "#ffffff" }));
-    backBtn.on("pointerdown", async () => {
-      if (this.readyToClaim) await this.finishTraining();
+    backBtn.on("pointerdown", () => {
       this.scene.start("HubScene");
     });
   }
@@ -63,9 +69,7 @@ export default class SavingScene extends Phaser.Scene {
     try {
       const res = await axios.get(`${API}/players/${this.playerId}`);
       const player = res.data;
-
       this.readyToClaim = false;
-      this.claimBtn?.destroy();
 
       if (player.training_end) {
         const endTime = new Date(player.training_end);
@@ -73,60 +77,123 @@ export default class SavingScene extends Phaser.Scene {
           this.trainingEnd = endTime;
           this.trainingStart = new Date(this.trainingEnd - TRAINING_DURATION);
         } else {
-          this.showClaimRewards();
+          this.justClaimed = true;
+          await this.finishAndShowRewards();
         }
-      } else {
+      } else if (!this.justClaimed) {
         const startRes = await axios.post(`${API}/players/${this.playerId}/start-training`, { type: "goalkeeper_special" });
         this.trainingEnd = new Date(startRes.data.endTime);
         this.trainingStart = new Date(this.trainingEnd - TRAINING_DURATION);
       }
     } catch (err) {
+      console.error("Error loading training:", err);
       this.countdownText.setText("⚠️ Error loading training");
     }
   }
 
+  async finishAndShowRewards() {
+    const updatedPlayer = await this.finishTraining();
+    if (updatedPlayer) this.showRewardPopup(updatedPlayer);
+  }
+
   async finishTraining() {
     try {
-      await axios.post(`${API}/players/${this.playerId}/finish-training`);
+      const res = await axios.post(`${API}/players/${this.playerId}/finish-training`);
+      return res.data;
     } catch (err) {
       console.error("Error finishing training:", err);
+      return null;
     }
   }
 
-  showClaimRewards() {
-    if (this.claimBtn) return;
+  showRewardPopup(player) {
     const { width, height } = this.scale;
 
-    this.readyToClaim = true;
-    this.countdownText.setText("✅ Training finished!");
+    this.progressBar.setVisible(false);
+    this.progressFill.setVisible(false);
+    this.countdownText.setVisible(false);
 
-    this.claimBtn = this.add.text(width / 2, height / 2 + 120, "CLAIM REWARDS 🎁", {
-      fontSize: "32px",
+    // ✅ Independent positions for each icon/text
+    const positions = {
+      xpIcon: { x: width / 2 - 60, y: height / 2 - 70 },
+      xpText: { x: width / 2 + 20, y: height / 2 - 72 },
+
+      dollarIcon: { x: width / 2 - 60, y: height / 2 - 10 },
+      dollarText: { x: width / 2 + 20, y: height / 2 - 12 },
+
+      statIcon: { x: width / 2 - 60, y: height / 2 + 50 },
+      statText: { x: width / 2 + 20, y: height / 2 + 48 },
+    };
+
+    const overlay = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.75).setDepth(100);
+    const box = this.add.rectangle(width / 2, height / 2, 400, 350, 0x0c2f0c, 0.95)
+      .setStrokeStyle(4, 0xffffff)
+      .setDepth(101);
+
+    this.add.text(width / 2, height / 2 - 140, "TRAINING COMPLETE!", {
       fontFamily: '"Luckiest Guy", sans-serif',
+      fontSize: "36px",
       color: "#ffffff",
-      backgroundColor: "#0c2f0c",
-      padding: { x: 20, y: 10 },
-    }).setOrigin(0.5).setInteractive();
+    }).setOrigin(0.5).setDepth(102);
 
-    this.claimBtn.on("pointerover", () => this.claimBtn.setStyle({ color: "#ffcc00" }));
-    this.claimBtn.on("pointerout", () => this.claimBtn.setStyle({ color: "#ffffff" }));
-    this.claimBtn.on("pointerdown", async () => {
-      await this.finishTraining();
+    // XP reward
+    if (player.lastXpGain > 0) {
+      this.add.image(positions.xpIcon.x, positions.xpIcon.y, "xp_icon").setDisplaySize(64, 64).setOrigin(0.5).setDepth(102);
+      this.add.text(positions.xpText.x, positions.xpText.y, `+${player.lastXpGain}`, {
+        fontFamily: '"Luckiest Guy", sans-serif',
+        fontSize: "28px",
+        color: "#ffffff",
+      }).setOrigin(0, 0.5).setDepth(102);
+    }
+
+    // Dollar reward
+    if (player.lastDollarGain > 0) {
+      this.add.image(positions.dollarIcon.x, positions.dollarIcon.y, "dollar_icon").setDisplaySize(64, 64).setOrigin(0.5).setDepth(102);
+      this.add.text(positions.dollarText.x, positions.dollarText.y, `+${player.lastDollarGain}`, {
+        fontFamily: '"Luckiest Guy", sans-serif',
+        fontSize: "28px",
+        color: "#ffffff",
+      }).setOrigin(0, 0.5).setDepth(102);
+    }
+
+    // Stat reward
+    if (player.lastStatGain && player.lastStatGain.value > 0) {
+      this.add.image(positions.statIcon.x, positions.statIcon.y, "saving_icon").setDisplaySize(64, 64).setOrigin(0.5).setDepth(102);
+      this.add.text(positions.statText.x, positions.statText.y, `+${player.lastStatGain.value}`, {
+        fontFamily: '"Luckiest Guy", sans-serif',
+        fontSize: "28px",
+        color: "#ffffff",
+      }).setOrigin(0, 0.5).setDepth(102);
+    }
+
+    const closeBtn = this.add.text(width / 2, height / 2 + 125, "CLAIM", {
+      fontFamily: '"Luckiest Guy", sans-serif',
+      fontSize: "32px",
+      backgroundColor: "#7a1f1f",
+      padding: { x: 20, y: 10 },
+      color: "#ffffff",
+    }).setOrigin(0.5).setInteractive({ useHandCursor: true }).setDepth(103);
+
+    closeBtn.on("pointerover", () => closeBtn.setStyle({ color: "#ffcc00" }));
+    closeBtn.on("pointerout", () => closeBtn.setStyle({ color: "#ffffff" }));
+    closeBtn.on("pointerdown", () => {
+      overlay.destroy();
+      box.destroy();
+      closeBtn.destroy();
       this.scene.start("HubScene");
     });
-
-    this.progressFill.width = 600;
   }
 
   update() {
     if (!this.trainingEnd || !this.trainingStart || this.readyToClaim) return;
-
     const total = this.trainingEnd - this.trainingStart;
     const remaining = this.trainingEnd - new Date();
 
     if (remaining <= 0) {
-      this.showClaimRewards();
-      this.trainingEnd = null;
+      this.progressFill.width = 600;
+      this.countdownText.setText("✅ Training finished!");
+      this.readyToClaim = true;
+      this.finishAndShowRewards();
     } else {
       const progress = 1 - remaining / total;
       this.progressFill.width = 600 * progress;

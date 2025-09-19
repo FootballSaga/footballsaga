@@ -2,6 +2,11 @@ import Phaser from "phaser";
 
 const API = "http://localhost:4000";
 
+// ✅ XP curve function (same formula as backend)
+function getXpNeeded(level) {
+  return 50 * Math.pow(level, 2) + 100 * level; 
+}
+
 export default class ProfileScene extends Phaser.Scene {
   constructor() {
     super("ProfileScene");
@@ -142,10 +147,10 @@ export default class ProfileScene extends Phaser.Scene {
         .setPosition(startX + nameWidth + spacing, this.nameText.y)
         .setVisible(true);
 
-      // Level & XP
-      this.levelText.setText(`Level ${this.player.level}`);
-      const xpNeeded = this.player.level * 100;
+      // ✅ Level & XP (using new formula)
+      const xpNeeded = getXpNeeded(this.player.level);
       const progress = Math.min(this.player.xp / xpNeeded, 1);
+      this.levelText.setText(`Level ${this.player.level}`);
       this.xpBarFill.width = 300 * progress;
       this.xpText.setText(`${this.player.xp} / ${xpNeeded}`);
 
@@ -154,7 +159,7 @@ export default class ProfileScene extends Phaser.Scene {
       this.statsTexts.speed.setText(`Speed: ${this.player.speed}`);
       this.statsTexts.stamina.setText(`Stamina: ${this.player.stamina}`);
 
-      // NEW: special stat text + icon
+      // Special stat text + icon
       this.statsTexts.special.setText(
         `${
           this.player.role === "goalkeeper" ? "Saving" :

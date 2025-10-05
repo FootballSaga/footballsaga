@@ -34,7 +34,9 @@ export default class HubScene extends Phaser.Scene {
       .setOrigin(0.5)
       .setDisplaySize(width, height);
 
-    this.playerId = this.registry.get("playerId");
+    this.clientId = this.registry.get("clientId");
+    // Keep characterId around for training etc.
+    this.characterId = this.registry.get("characterId");
 
     // 📊 HUD panel background
     this.statsBox = this.add.rectangle(300, 50, 300, 270, 0x0c2f0c, 0.95)
@@ -108,6 +110,20 @@ export default class HubScene extends Phaser.Scene {
       this.scene.start("LoginScene");
     });
 
+    // Career button
+    const careerBtn = this.add.text(this.scale.width / 2, this.scale.height * 0.10, "CAREER", {
+      fontFamily: '"Luckiest Guy", sans-serif',
+      fontSize: "42px",
+      color: "#ffffff",
+      backgroundColor: "#0c2f0c",
+      padding: { x: 20, y: 10 },
+    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+
+    careerBtn.on("pointerover", () => careerBtn.setStyle({ color: "#ffcc00" }));
+    careerBtn.on("pointerout", () => careerBtn.setStyle({ color: "#ffffff" }));
+    careerBtn.on("pointerdown", () => {
+      this.scene.start("CareerScene");
+    });
     // Training button
     this.trainingBtn = this.add.text(width / 2, height * 0.10, "TRAINING", {
       fontFamily: '"Luckiest Guy", sans-serif',
@@ -135,6 +151,7 @@ export default class HubScene extends Phaser.Scene {
       }
     });
 
+    // Profile button
     const profileBtn = this.add.text(width - 160, height * 0.10, "PROFILE", {
       fontFamily: '"Luckiest Guy", sans-serif',
       fontSize: "42px",
@@ -160,11 +177,12 @@ export default class HubScene extends Phaser.Scene {
   }
 
   async refreshPlayer() {
-    if (!this.playerId) return;
+    if (!this.clientId) return;
 
     try {
-      const res = await fetch(`${API}/players/${this.playerId}`);
+      const res = await fetch(`${API}/players/${this.clientId}`);
       const updated = await res.json();
+      console.log("Fetched player:", updated);
       this.player = updated;
 
       this.levelText.setText(`Level ${updated.level}`);

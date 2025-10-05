@@ -7,7 +7,6 @@ import App from "./App.jsx";
 import StartScene from "./StartScene";
 import LoginScene from "./LoginScene";
 import RoleSelectScene from "./RoleSelectScene";
-import CityScene from "./CityScene";
 import HubScene from "./HubScene.js";
 import TrainingScene from "./TrainingScene.js";
 import GymScene from "./GymScene.js";
@@ -24,8 +23,7 @@ const config = {
   width: 1920,
   height: 1080,
   backgroundColor: "#1f7a1f",
-  scene: [StartScene, LoginScene, RoleSelectScene, TrainingScene, 
-          CityScene, HubScene, GymScene, RunningScene, BallScene, 
+  scene: [StartScene, LoginScene, RoleSelectScene, TrainingScene,  HubScene, GymScene, RunningScene, BallScene, 
           ProfileScene, SavingScene, TacklingScene, VisionScene,
           ShootingScene],
   scale: {

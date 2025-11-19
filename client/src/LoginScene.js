@@ -1,20 +1,20 @@
 // client/src/LoginScene.js
-import Phaser from "phaser";
+import Phaser from "phaser"; // Phaser scene framework
 
-const API = "http://localhost:4000";
+const API = "http://localhost:4000"; // Backend base URL
 
 export default class LoginScene extends Phaser.Scene {
   constructor() {
-    super("LoginScene");
+    super("LoginScene"); // Scene key
   }
 
   async create() {
-    await document.fonts.ready;
-    const { width, height } = this.scale;
+    await document.fonts.ready; // Ensure fonts are loaded
+    const { width, height } = this.scale; // Canvas dimensions
 
-    const token = localStorage.getItem("token");
+    const token = localStorage.getItem("token"); // Stored session token
     if (!token) {
-      this.scene.start("StartScene");
+      this.scene.start("StartScene"); // No token -> back to start
       return;
     }
 
@@ -27,14 +27,14 @@ export default class LoginScene extends Phaser.Scene {
       strokeThickness: 6,
     }).setOrigin(0.5, 0);
 
-    // Status line (username)
-    const statusText = this.add.text(width / 2, 120, "Checking session…", {
+    // Username status line
+    const statusText = this.add.text(width / 2, 140, "Checking user?", {
       fontFamily: '"Luckiest Guy", sans-serif',
       fontSize: "40px",
       color: "#ffcc00",
       stroke: "#000000",
       strokeThickness: 4,
-    }).setOrigin(0.5, 0);
+    }).setOrigin(0.5);
 
     // Logout button
     const logoutBtn = this.add.text(width - 120, 80, "LOG OUT", {
@@ -47,19 +47,19 @@ export default class LoginScene extends Phaser.Scene {
       padding: { x: 14, y: 8 },
     }).setOrigin(0.5).setInteractive({ useHandCursor: true });
 
-    logoutBtn.on("pointerover", () => logoutBtn.setStyle({ color: "#ffcc00" }));
-    logoutBtn.on("pointerout", () => logoutBtn.setStyle({ color: "#fdf5e6" }));
+    logoutBtn.on("pointerover", () => logoutBtn.setStyle({ color: "#ffcc00" })); // Hover color
+    logoutBtn.on("pointerout", () => logoutBtn.setStyle({ color: "#fdf5e6" })); // Reset color
     logoutBtn.on("pointerdown", async () => {
       try {
         await fetch(`${API}/logout`, {
           method: "POST",
           headers: { Authorization: `Bearer ${token}` },
-        });
+        }); // Attempt logout on backend
       } catch (err) {
-        console.error("❌ Logout request failed:", err);
+        console.error("Logout request failed:", err); // Ignore network error
       }
-      localStorage.removeItem("token");
-      this.scene.start("StartScene");
+      localStorage.removeItem("token"); // Clear token locally
+      this.scene.start("StartScene"); // Back to start
     });
 
     // Create new character button
@@ -73,22 +73,23 @@ export default class LoginScene extends Phaser.Scene {
       padding: { x: 14, y: 8 },
     }).setOrigin(0.5).setInteractive({ useHandCursor: true });
 
-    createBtn.on("pointerover", () => createBtn.setStyle({ color: "#ffcc00" }));
-    createBtn.on("pointerout", () => createBtn.setStyle({ color: "#ffffff" }));
-    createBtn.on("pointerdown", () => this.scene.start("RoleSelectScene"));
+    createBtn.on("pointerover", () => createBtn.setStyle({ color: "#ffcc00" })); // Hover color
+    createBtn.on("pointerout", () => createBtn.setStyle({ color: "#ffffff" })); // Reset color
+    createBtn.on("pointerdown", () => this.scene.start("RoleSelectScene")); // Go to role select
 
     // Load characters
     try {
-      // 1) Verify session
+      // 1) Verify session + get username
       const meRes = await fetch(`${API}/me`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!meRes.ok) throw new Error("Session invalid");
       const me = await meRes.json();
-      statusText.setText(`Logged in as: ${me.user.username}`);
+
+      statusText.setText(`Logged in as: ${me.user.username}`); // Show username
 
       // 2) Fetch characters
-      const res = await fetch(`${API}/players`, {
+      const res = await fetch(`${API}/characters`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) throw new Error("Failed to load characters");
@@ -103,9 +104,9 @@ export default class LoginScene extends Phaser.Scene {
           strokeThickness: 6,
           backgroundColor: "#00000077",
           padding: { x: 12, y: 8 },
-        }).setOrigin(0.5);
+        }).setOrigin(0.5); // Empty state
       } else {
-        // Role → icon mapping
+        // Role -> icon mapping
         const roleIcons = {
           goalkeeper: "goalkeeper_icon",
           defender: "defender_icon",
@@ -113,13 +114,13 @@ export default class LoginScene extends Phaser.Scene {
           attacker: "attacker_icon",
         };
 
-        const cardWidth = 420;
-        const cardHeight = 140;
-        const spacingY = 160;
-        const startY = 250;
+        const cardWidth = 420; // Card width
+        const cardHeight = 140; // Card height
+        const spacingY = 160; // Vertical spacing per card
+        const startY = 250; // Start Y position
 
         players.forEach((p, i) => {
-          const y = startY + i * spacingY;
+          const y = startY + i * spacingY; // Compute Y per card
 
           // card background
           const card = this.add.rectangle(width / 2, y, cardWidth, cardHeight, 0x000000, 0.6)
@@ -128,7 +129,7 @@ export default class LoginScene extends Phaser.Scene {
             .setInteractive({ useHandCursor: true });
 
           // icon (role-based)
-          const iconKey = roleIcons[p.role.toLowerCase()] || "goalkeeper_icon_128";
+          const iconKey = roleIcons[p.role.toLowerCase()] || "goalkeeper_icon_128"; // Choose icon
           const icon = this.add.image(width / 2 - cardWidth / 2 + 80, y, iconKey)
             .setDisplaySize(128, 128);
 
@@ -151,25 +152,25 @@ export default class LoginScene extends Phaser.Scene {
           }).setOrigin(0, 0.5);
 
           // hover highlight (just like other buttons)
-          card.on("pointerover", () => {;
+          card.on("pointerover", () => {
             nameText.setColor("#ffcc00");
             levelText.setColor("#ffcc00");
           });
-          card.on("pointerout", () => {;
+          card.on("pointerout", () => {
             nameText.setColor("#ffffff");
             levelText.setColor("#ffffffff");
           });
 
           // select character
           card.on("pointerdown", () => {
-            this.registry.set("characterId", p.character_id);
-            this.registry.set("playerRoleId", p.role_id);
-            this.registry.set("playerName", p.name);
-            this.scene.start("HubScene");
+            this.registry.set("characterId", p.character_id); // Store character id
+            this.registry.set("playerRoleId", p.role_id); // Store role id
+            this.registry.set("playerName", p.name); // Store name
+            this.scene.start("HubScene"); // Go to hub
           });
 
           // delete button
-          const delBtn = this.add.text(width / 2 + cardWidth / 2 - 30, y - 40, "✖", {
+          const delBtn = this.add.text(width / 2 + cardWidth / 2 - 30, y - 40, "X", {
             fontFamily: "sans-serif",
             fontSize: "40px",
             color: "#ff4444",
@@ -197,7 +198,7 @@ export default class LoginScene extends Phaser.Scene {
 
           delBtn.on("pointerdown", async () => {
             try {
-              const delRes = await fetch(`${API}/players/${p.character_id}`, {
+              const delRes = await fetch(`${API}/characters/${p.character_id}`, {
                 method: "DELETE",
                 headers: { Authorization: `Bearer ${token}` },
               });

@@ -128,7 +128,7 @@ export default class ProfileScene extends Phaser.Scene {
   async refreshProfile() {
     if (!this.playerId) return;
     try {
-      const res = await fetch(`${API}/players/${this.playerId}`);
+      const res = await fetch(`${API}/characters/${this.playerId}`);
       this.player = await res.json();
 
       // Name + icon centering

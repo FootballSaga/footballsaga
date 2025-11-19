@@ -9,23 +9,15 @@ import LoginScene from "./LoginScene";
 import RoleSelectScene from "./RoleSelectScene";
 import HubScene from "./HubScene.js";
 import TrainingScene from "./TrainingScene.js";
-import GymScene from "./GymScene.js";
-import RunningScene from "./RunningScene.js";
-import BallScene from "./BallScene.js";
 import ProfileScene from "./ProfileScene.js";
-import SavingScene from "./SavingScene.js";
-import TacklingScene from "./TacklingScene.js";
-import VisionScene from "./VisionScene.js";
-import ShootingScene from "./ShootingScene.js";
+import TrainingProgressScene from "./TrainingProgressScene.js";
 
 const config = {
   type: Phaser.AUTO,
   width: 1920,
   height: 1080,
   backgroundColor: "#1f7a1f",
-  scene: [StartScene, LoginScene, RoleSelectScene, TrainingScene,  HubScene, GymScene, RunningScene, BallScene, 
-          ProfileScene, SavingScene, TacklingScene, VisionScene,
-          ShootingScene],
+  scene: [StartScene, LoginScene, RoleSelectScene, TrainingScene,  HubScene, ProfileScene, TrainingProgressScene],
   scale: {
     mode: Phaser.Scale.FIT,          // scale game to fit screen
     autoCenter: Phaser.Scale.CENTER_BOTH, // center the canvas

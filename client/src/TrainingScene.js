@@ -1,248 +1,318 @@
+// client/src/TrainingScene.js
+// Scene: Choose and start a training, manage tickets/whistles.
 import Phaser from "phaser";
-const API = "http://localhost:4000";
+const API = "http://localhost:4000"; // Backend base URL
 
 export default class TrainingScene extends Phaser.Scene {
   constructor() {
-    super("TrainingScene");
-    this.playerId = null;
-    this.ticketsText = null;
-    this.trainingButtons = [];
-    this.claimBtn = null;
+    super("TrainingScene"); // Scene key
+    this.playerId = null; // Active character ID
+    this.ticketsText = null; // Ticket counter text
+    this.trainingButtons = []; // Training option buttons
+    this.claimBtn = null; // Convert whistle to ticket UI
+    this.isStartingTraining = false; // Prevent duplicate start
   }
 
   preload() {
-    this.load.image("training_bg", "/assets/training_ground.png");
-    this.load.image("ticket_icon", "/icons/ticket.png");
-    this.load.image("whistle_icon", "/icons/whistle.png");
+    this.load.image("training_bg", "/assets/training_ground.png"); // Background
+    this.load.image("ticket_icon", "/icons/ticket.png"); // Ticket icon
+    this.load.image("whistle_icon", "/icons/whistle.png"); // Whistle icon
   }
 
   async create() {
-    const { width, height } = this.scale;
-    this.playerId = this.registry.get("playerId");
+    const { width, height } = this.scale; // Canvas size
+    this.playerId = this.registry.get("characterId"); // Active character ID
+    const token = localStorage.getItem("token"); // Auth token
 
-    // --- Background
+    this.isStartingTraining = false; // Reset flag
+
+    // If training is active -> go to progress scene instead
+    const res = await fetch(`${API}/characters/${this.playerId}/active-training`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    const data = await res.json();
+
+    if (data.active) {
+      this.scene.start("TrainingProgressScene", {
+        training: data.training
+      }); // Redirect to progress
+      return;
+    }
+
+    // Background
     this.add.image(width / 2, height / 2, "training_bg")
       .setOrigin(0.5)
       .setDisplaySize(width, height);
 
-    // --- Title
+    // Title
     this.add.text(width / 2, 50, "TRAINING GROUNDS", {
-      fontFamily: '"Luckiest Guy", sans-serif',
-      fontSize: "48px",
-      color: "#ffffff",
-    }).setOrigin(0.5);
-
-    // --- Tickets HUD box
-    this.add.rectangle(width / 2 + 350, 55, 150, 60, 0x0c2f0c, 0.95)
-      .setStrokeStyle(3, 0xffffff)
-      .setOrigin(0.5);
-
-    this.add.image(width / 2 + 310, 55, "ticket_icon")
-      .setDisplaySize(64, 64)
-      .setOrigin(0.5);
-
-    this.ticketsText = this.add.text(width / 2 + 360, 18, "...", {
       fontFamily: '"Luckiest Guy", sans-serif',
       fontSize: "60px",
       color: "#ffffff",
+      stroke: "#000000",
+      strokeThickness: 6,
+    }).setOrigin(0.5);
+
+    // Tickets HUD box
+    this.add.rectangle(width / 2 + 450, 55, 150, 60, 0x0c2f0c, 0.95)
+      .setStrokeStyle(3, 0xffffff)
+      .setOrigin(0.5);
+
+    this.add.image(width / 2 + 410, 55, "ticket_icon")
+      .setDisplaySize(64, 64)
+      .setOrigin(0.5);
+
+    this.ticketsText = this.add.text(width / 2 + 450, 15, "...", {
+      fontFamily: '"Luckiest Guy", sans-serif',
+      fontSize: "60px",
+      color: "#ffffff",
+      stroke: "#000000",
+      strokeThickness: 6,
     }).setOrigin(0, 0);
 
-    // === Claim button content & logic ===
-    this.claimBtn = this.add.container(width / 2 + 350, 125);
+    // === Claim button (Whistle -> Ticket)
+    this.claimBtn = this.add.container(width / 2 + 350, 125); // Container for claim UI
 
-    const claimBg = this.add.rectangle(0, 10, 320, 70, 0x0c2f0c, 0.95)
-      .setStrokeStyle(3, 0xffffff)
-      .setInteractive({ useHandCursor: true });
+    const claimBg = this.add.rectangle(100, 10, 320, 70, 0x0c2f0c, 0.95).setStrokeStyle(3, 0xffffff);
 
-    const leftText = this.add.text(-150, -13, "Get", {
+    const leftText = this.add.text(0, 7, "Get", {
       fontFamily: '"Luckiest Guy", sans-serif',
       fontSize: "40px",
-      color: "#ffffff",
-    });
+      color: "#fdf5e6",
+      stroke: "#000000",
+      strokeThickness: 6,
+    }).setOrigin(0.5);
 
-    const ticketMiniIcon = this.add.image(-40, 10, "ticket_icon")
+    const ticketMiniIcon = this.add.image(77, 10, "ticket_icon")
       .setDisplaySize(64, 64)
       .setOrigin(0.5);
 
-    const parenLeft = this.add.text(20, -20, "( 1", {
+    const parenLeft = this.add.text(110, -23, "( 1", {
       fontFamily: '"Luckiest Guy", sans-serif',
       fontSize: "50px",
       color: "#ffffff",
+      stroke: "#000000",
+      strokeThickness: 6,
     });
 
-    const whistleMiniIcon = this.add.image(100, 10, "whistle_icon")
+    const whistleMiniIcon = this.add.image(190, 10, "whistle_icon")
       .setDisplaySize(64, 64)
       .setOrigin(0.5);
 
-    const parenRight = this.add.text(130, -20, ")", {
+    const parenRight = this.add.text(220, -23, ")", {
       fontFamily: '"Luckiest Guy", sans-serif',
       fontSize: "50px",
       color: "#ffffff",
+      stroke: "#000000",
+      strokeThickness: 6,
     });
 
-    this.claimBtn.add([claimBg, leftText, ticketMiniIcon, parenLeft, whistleMiniIcon, parenRight]);
+    this.claimBtn.add([
+      claimBg,
+      leftText,
+      ticketMiniIcon,
+      parenLeft,
+      whistleMiniIcon,
+      parenRight,
+    ]);
 
-    claimBg.on("pointerover", () => {
-      if (claimBg.input && claimBg.input.enabled) leftText.setColor("#ffcc00");
-    });
-    claimBg.on("pointerout", () => {
-      if (claimBg.input && claimBg.input.enabled) leftText.setColor("#ffffff");
-    });
-    claimBg.on("pointerdown", async () => {
-      if (!(claimBg.input && claimBg.input.enabled)) return;
-      await this.convertWhistleToTicket();
+    this.claimBtn.setSize(320, 70);
+    this.claimBtn.setInteractive({ useHandCursor: true });
+
+    this.claimBtn.on("pointerover", () => {
+      leftText.setColor("#ffcc00");
+      parenLeft.setColor("#ffcc00");
+      parenRight.setColor("#ffcc00");
     });
 
+    this.claimBtn.on("pointerout", () => {
+      leftText.setColor("#fdf5e6");
+      parenLeft.setColor("#fdf5e6");
+      parenRight.setColor("#fdf5e6");
+    });
+
+    this.claimBtn.on("pointerdown", async () => {
+      await this.convertWhistleToTicket(); // Convert currency
+    });
+
+    // state logic for claim button
     this.setClaimState = (tickets, whistles) => {
       const canConvert = tickets < 10 && whistles > 0;
       const isMax = tickets >= 10;
       const noWhistles = tickets < 10 && whistles <= 0;
 
       if (isMax) {
+        this.claimBtn.disableInteractive();
         claimBg.setFillStyle(0x444444, 1);
-        claimBg.disableInteractive();
-        leftText.setText("Max").setColor("#ff4444").setFontSize(40).setX(-80).setY(-13);
-        ticketMiniIcon.setVisible(true).setX(40).setY(10);
-        parenLeft.setVisible(false);
+        leftText.setText("Max").setColor("#ff4444").setFontSize(50);
+        leftText.setPosition(60, 7);
+        ticketMiniIcon.setPosition(150, 10);
         whistleMiniIcon.setVisible(false);
+        parenLeft.setVisible(false);
         parenRight.setVisible(false);
       } else if (canConvert) {
-        claimBg.setFillStyle(0x1f4d1f, 1);
-        claimBg.setInteractive({ useHandCursor: true });
-        leftText.setText("Get").setColor("#ffffff").setFontSize(40).setX(-150).setY(-13);
-        ticketMiniIcon.setVisible(true).setX(-40).setY(10);
-        parenLeft.setVisible(true).setText("( 1").setX(20).setY(-20);
-        whistleMiniIcon.setVisible(true).setX(100).setY(10);
-        parenRight.setVisible(true).setText(")").setX(130).setY(-20);
+        this.claimBtn.setInteractive({ useHandCursor: true });
+        claimBg.setFillStyle(0x0c2f0c, 0.95);
+        leftText.setText("Get").setColor("#fdf5e6").setFontSize(50);
+        whistleMiniIcon.setVisible(true);
+        ticketMiniIcon.setVisible(true);
+        parenLeft.setVisible(true);
+        parenRight.setVisible(true);
       } else if (noWhistles) {
+        this.claimBtn.disableInteractive();
         claimBg.setFillStyle(0x444444, 1);
-        claimBg.disableInteractive();
-        leftText.setText("0").setColor("#888888").setFontSize(60).setX(-50).setY(-27);
-        whistleMiniIcon.setVisible(true).setX(25).setY(10);
+        leftText.setText("0").setColor("#ffffff").setFontSize(60);
+        leftText.setPosition(75, 5);
+        whistleMiniIcon.setPosition(125, 10);
         ticketMiniIcon.setVisible(false);
         parenLeft.setVisible(false);
         parenRight.setVisible(false);
       }
     };
 
-    // Render available trainings dynamically:
+    // Load 3 training options (backend handles per-day logic)
     await this.renderTrainings();
 
-    // --- Back button
-    const backBtn = this.add.text(80, 40, "← Back", {
+    // Back Button to HubScene
+    const backBtn = this.add.text(120, height * 0.05, "← Back", {
       fontFamily: '"Luckiest Guy", sans-serif',
       fontSize: "32px",
       color: "#ffffff",
       backgroundColor: "#7a1f1f",
-      padding: { x: 10, y: 5 },
-    }).setOrigin(0.5).setInteractive();
-    backBtn.on("pointerdown", () => this.scene.start("HubScene"));
+      stroke: "#000000",
+      strokeThickness: 6,
+      padding: { x: 14, y: 8 },
+    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
 
-    this.events.once("shutdown", () => { this.trainingButtons = []; });
-    this.events.on("wake", () => this.renderTrainings());
+    backBtn.on("pointerover", () => backBtn.setStyle({ color: "#ffcc00" })); // Hover color
+    backBtn.on("pointerout", () => backBtn.setStyle({ color: "#fdf5e6" })); // Reset color
+    backBtn.on("pointerdown", () => this.scene.start("HubScene")); // Return to hub
   }
 
   async renderTrainings() {
     try {
-      const res = await fetch(`${API}/players/${this.playerId}`);
-      const player = await res.json();
+      const token = localStorage.getItem("token"); // Token
 
-      this.ticketsText.setText(player.tickets || 0);
-      this.setClaimState(player.tickets, player.whistles);
+      // Always ask backend; it decides if options change or not
+      const optRes = await fetch(`${API}/characters/${this.playerId}/training-options`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!optRes.ok) {
+        console.error("Failed /training-options"); // Log failure
+        return;
+      }
+
+      const data = await optRes.json();
+      const options = data.options; // Array of 3 options
+
+      // Fetch updated player state (tickets, whistles)
+      const playersRes = await fetch(`${API}/characters`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      if (!playersRes.ok) return console.error("Failed /players"); // Bail if failure
+
+      const players = await playersRes.json();
+      const player = players.find(p => p.character_id === Number(this.playerId)); // Find active
+      if (!player) return console.error("No player match"); // Not found
+
+      this.ticketsText.setText(player.tickets || 0); // Show tickets
+      this.setClaimState(player.tickets, player.whistles); // Update claim UI
 
       // Clear old buttons
       this.trainingButtons.forEach(b => b.destroy());
       this.trainingButtons = [];
 
-      if (!player.available_trainings) return;
-      const available = JSON.parse(player.available_trainings);
+      // Render the 3 options
+      const startY = 200; // First option Y
+      options.forEach((training, i) => {
+        const btn = this.add.text(
+          this.scale.width / 2,
+          startY + i * 100,
+          `${training.name} (${training.duration}s)`,
+          {
+            fontFamily: '"Luckiest Guy", sans-serif',
+            fontSize: "32px",
+            color: "#ffffff",
+            stroke: "#000000",
+            strokeThickness: 6,
+            backgroundColor: "#0c2f0c",
+            padding: { x: 20, y: 10 },
+          }
+        )
+          .setOrigin(0.5)
+          .setInteractive({ useHandCursor: true });
 
-      const startY = 200;
-      available.forEach((type, i) => {
-        const btn = this.add.text(this.scale.width / 2, startY + i * 100, this.formatTrainingLabel(type), {
-          fontFamily: '"Luckiest Guy", sans-serif',
-          fontSize: "32px",
-          color: "#ffffff",
-          backgroundColor: "#0c2f0c",
-          padding: { x: 20, y: 10 },
-        }).setOrigin(0.5);
+        btn.on("pointerover", () => btn.setStyle({ color: "#ffcc00" })); // Hover color
+        btn.on("pointerout", () => btn.setStyle({ color: "#fdf5e6" })); // Reset color
+        btn.on("pointerdown", () => this.startTraining(training.id)); // Start training
 
-        btn.setInteractive({ useHandCursor: true });
-        btn.on("pointerover", () => btn.setStyle({ color: "#ffcc00" }));
-        btn.on("pointerout", () => btn.setStyle({ color: "#ffffff" }));
-        btn.on("pointerdown", () => this.startTraining(type));
-
-        this.trainingButtons.push(btn);
+        this.trainingButtons.push(btn); // Track button
       });
 
-      this.setButtonsEnabled(player.tickets > 0);
+      this.setButtonsEnabled(player.tickets > 0); // Enable if tickets available
     } catch (e) {
-      console.error("Failed to fetch trainings:", e);
+      console.error("Failed to render trainings:", e); // Log error
     }
   }
 
-  formatTrainingLabel(type) {
-    switch (type) {
-      case "gym": return "GYM 🏋️";
-      case "running": return "RUNNING 🏃";
-      case "ball": return "BALL ⚽";
-      case "goalkeeper_special": return "SAVING 🧤";
-      case "defender_special": return "TACKLING 🛡️";
-      case "midfielder_special": return "VISION 👁️";
-      case "attacker_special": return "SHOOTING 🎯"; // ✅ fix spelling
-      default: return type.toUpperCase();
-    }
+  async startTraining(trainingListId) {
+    const token = localStorage.getItem("token"); // Token
+
+    if (this.isStartingTraining) return; // Prevent double-click
+    this.isStartingTraining = true;
+
+    this.setButtonsEnabled(false); // Disable buttons while starting
+
+    await fetch(`${API}/characters/${this.playerId}/start-training`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ trainingListId }),
+    });
+
+    this.scene.start("TrainingProgressScene", { trainingListId }); // Go to progress
   }
 
+  async convertWhistleToTicket() {
+    const token = localStorage.getItem("token"); // Token
+
+    try {
+      const res = await fetch(`${API}/characters/${this.playerId}/whistle-to-ticket`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        console.error("Could not convert whistle:", err.error || res.status);
+        this.isStartingTraining = false;
+        this.setButtonsEnabled(true);
+        return;
+      }
+
+      const data = await res.json();
+      const character = data.character; // Updated character
+
+      this.ticketsText.setText(character.tickets || 0); // Update tickets
+      this.setClaimState(character.tickets, character.whistles); // Update claim UI
+      this.setButtonsEnabled(character.tickets > 0); // Enable if tickets > 0
+
+    } catch (e) {
+      console.error("whistle-to-ticket request failed:", e); // Log error
+    }
+  }
 
   setButtonsEnabled(enabled) {
     this.trainingButtons.forEach((btn) => {
       if (enabled) {
-        btn.setStyle({ backgroundColor: "#0c2f0c", color: "#ffffff" });
-        btn.setInteractive({ useHandCursor: true });
+        btn.setInteractive().setStyle({ backgroundColor: "#0c2f0c", color: "#ffffff" }); // Enable style
       } else {
-        btn.setStyle({ backgroundColor: "#444444", color: "#888888" });
-        btn.disableInteractive();
+        btn.disableInteractive().setStyle({ backgroundColor: "#555", color: "#777" }); // Disabled style
       }
     });
-  }
-
-  async convertWhistleToTicket() {
-    try {
-      const res = await fetch(`${API}/players/${this.playerId}/whistle-to-ticket`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-      });
-      await this.renderTrainings();
-    } catch (e) {
-      console.error("Error converting whistle:", e);
-      await this.renderTrainings();
-    }
-  }
-
-  async startTraining(type) {
-    try {
-      const res = await fetch(`${API}/players/${this.playerId}/start-training`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type }),
-      });
-      if (res.ok) this.scene.start(this.getTrainingScene(type));
-    } catch (e) {
-      console.error("Error starting training:", e);
-    }
-  }
-
-  getTrainingScene(type) {
-    switch (type) {
-      case "gym": return "GymScene";
-      case "running": return "RunningScene";
-      case "ball": return "BallScene";
-      case "goalkeeper_special": return "SavingScene";
-      case "defender_special": return "TacklingScene";
-      case "midfielder_special": return "VisionScene";
-      case "attacker_special": return "ShootingScene";
-      default: return "TrainingScene";
-    }
   }
 }

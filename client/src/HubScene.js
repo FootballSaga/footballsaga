@@ -92,7 +92,7 @@ export default class HubScene extends Phaser.Scene {
     }).setOrigin(0, 0.5);
 
     // Training button
-    this.trainingBtn = this.add.text(width / 2, height * 0.10, "TRAINING", {
+    this.trainingBtn = this.add.text(width - 160, height * 0.10 + 100, "TRAINING", {
       fontFamily: '"Luckiest Guy", sans-serif',
       fontSize: "42px",
       color: "#ffffff",
@@ -120,6 +120,25 @@ export default class HubScene extends Phaser.Scene {
     profileBtn.on("pointerover", () => profileBtn.setStyle({ color: "#ffcc00" })); // Hover color
     profileBtn.on("pointerout", () => profileBtn.setStyle({ color: "#fdf5e6" })); // Reset color
     profileBtn.on("pointerdown", () => this.scene.start("ProfileScene")); // Go to profile
+
+    // Kick Button
+    const kickBtn = this.add.text(width - 160, height * 0.10 + 200, "KICK", {
+        fontFamily: '"Luckiest Guy", sans-serif',
+        fontSize: "42px",
+        color: "#ffffff",
+        backgroundColor: " #0c2f0c",
+        stroke: "#000000",
+        strokeThickness: 6,
+        padding: { x: 20, y: 10 },
+    })
+    .setInteractive({ useHandCursor: true })
+    .setOrigin(0.5);
+
+    kickBtn.on("pointerover", () => kickBtn.setStyle({ color: "#ffcc00" })); // Hover color
+    kickBtn.on("pointerout", () => kickBtn.setStyle({ color: "#fdf5e6" })); // Reset color
+    kickBtn.on("pointerdown", () => {
+        this.scene.start("KickScene");
+    });
 
     // Back Button to LoginScene
     const backBtn = this.add.text(120, height * 0.05, "← Back", {

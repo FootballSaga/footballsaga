@@ -11,13 +11,14 @@ import HubScene from "./HubScene.js";
 import TrainingScene from "./TrainingScene.js";
 import ProfileScene from "./ProfileScene.js";
 import TrainingProgressScene from "./TrainingProgressScene.js";
+import KickScene from "./KickScene";
 
 const config = {
   type: Phaser.AUTO,
   width: 1920,
   height: 1080,
   backgroundColor: "#1f7a1f",
-  scene: [StartScene, LoginScene, RoleSelectScene, TrainingScene,  HubScene, ProfileScene, TrainingProgressScene],
+  scene: [StartScene, LoginScene, RoleSelectScene, TrainingScene,  HubScene, ProfileScene, TrainingProgressScene, KickScene],
   scale: {
     mode: Phaser.Scale.FIT,          // scale game to fit screen
     autoCenter: Phaser.Scale.CENTER_BOTH, // center the canvas

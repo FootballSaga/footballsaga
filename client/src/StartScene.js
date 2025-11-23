@@ -335,7 +335,7 @@ export default class StartScene extends Phaser.Scene {
       try {
         await onSubmit(usernameVal, passwordVal); // Submit handler
       } catch (err) {
-        messageText.setText("Error: " + err.message); // Show error
+        messageText.setText("❌ " + err.message); // Show error
         messageText.setVisible(false); // Hide then flash
         this.time.delayedCall(150, () => messageText.setVisible(true)); // Flash effect
       }
